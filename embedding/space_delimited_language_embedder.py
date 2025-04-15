@@ -5,25 +5,16 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 import spacy 
 
 class SpaceDelimitedLanguagesEmbedder(BaseEmbedder):
-    """Sentence embedder for all space-delimited languages using a Transformer model."""
-
     def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        """Initialize the embedder with the pretrained model."""
         super().__init__(model=model, tokenizer=tokenizer)
         self.multilingual_spacy = spacy.load("xx_ent_wiki_sm")
         self.ignore_pos = {"SYM", "PUNCT",}
 
     @override
-    def tokenize_into_words(self, text: str) -> List[dict]:
-        """
-        Gets the words data for a text.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            List[dict]: A list of words data.
-        """
-        words = self.multilingual_spacy(text)
-        words_data = [{"word": word.text, "pos": word.pos_ } for word in words]
-        return words_data
+    def tokenize_into_words(self, sentences: list[str]) -> list[dict]:
+        sentence_data_1d = list(self.multilingual_spacy.pipe(sentences))
+        word_data_2d =[]
+        for sentence_data in sentence_data_1d:
+            word_data_1d = [{"word": word.text, "pos": word.pos_} for word in sentence_data]
+            word_data_2d.append(word_data_1d)
+        return word_data_2d

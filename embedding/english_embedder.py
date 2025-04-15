@@ -38,16 +38,10 @@ class EnglishEmbedder(BaseEmbedder):
         return
 
     @override
-    def tokenize_into_words(self, text: str) -> List[dict]:
-        """
-        Gets the words data for a text.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            List[dict]: A list of words data.
-        """
-        words = self.en_spacy(text)
-        words_data = [{"word": word.text, "pos": word.pos_} for word in words]
-        return words_data
+    def tokenize_into_words(self, sentences: list[str]) -> list[dict]:
+        sentence_data_1d = list(self.en_spacy.pipe(sentences))
+        word_data_2d =[]
+        for sentence_data in sentence_data_1d:
+            word_data_1d = [{"word": word.text, "pos": word.pos_} for word in sentence_data]
+            word_data_2d.append(word_data_1d)
+        return word_data_2d

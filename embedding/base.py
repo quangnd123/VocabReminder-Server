@@ -23,33 +23,95 @@ class BaseEmbedder(ABC):
         self.model.to(self.device)
         self.ignore_pos = [] 
 
-    @abstractmethod
-    def tokenize_into_words(self, text: str) -> List[dict]:
+    def tokenize_into_tokens(self, sentences: list[str], add_special_tokens: bool=False) -> list[list[str]]:
         """
-        Splits a text into a list of words.
+        Tokenizes sentences into tokens.
 
         Args:
-            text (str): The input text.
+            sentences (list[str]): a list of sentence.
 
         Returns:
-            List[dict]: A list of words_data.
+            list[list[str]]: (num_sentences, num_tokens) each element is a string.
+        """
+
+        encoded = self.tokenizer(
+            sentences,
+            add_special_tokens=add_special_tokens,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            padding=False,
+            truncation=False,
+        )
+        return [self.tokenizer.convert_ids_to_tokens(ids) for ids in encoded["input_ids"]]
+
+    @abstractmethod
+    def tokenize_into_words(self, sentences: list[str]) -> list[list[dict]]:
+        """
+        Splits sentences into words.
+
+        Args:
+            sentences (list[str]): a list of sentence.
+
+        Returns:
+            list[list[dict]]: (num_sentences, num_words) each element is a word data dictionary of keys {"word", "pos"}.
         """
         pass
-
-    def get_word_data_1d(self, sentence: str) -> List[dict]:
+    
+    def get_word_indices(self, sentence: str, words: list[str]) -> list[int]:
         """
-        Gets the words for a text.
+        Gets the indices for all words in a sentence.
 
         Args:
-            text (str): The input text.
+            sentence (str): The input sentence.
 
         Returns:
-            List[dict]: A list of word data.
+            List[int]: A list of words' indices.
         """
-        word_data_1d = self.tokenize_into_words(text=sentence)
-        tokens = self.tokenize_into_tokens(text=sentence, add_special_tokens=True)
+        idx = 0
+        word_indices = []
+        for word in words:
+            word_idx = sentence.find(word, idx)
+            word_indices.append(word_idx)
+            idx = word_idx + len(word)
+        return word_indices
 
-        # Remove '▁' and whitespace(spaces, tabs, newlines)
+    def get_token_embedding(self, sentences: list[str]) -> list[list[torch.Tensor]]:
+        """
+        Generates token-level embeddings for a list of sentences.
+
+        Args:
+            sentences (list[str]): A list of sentences.
+
+        Returns:
+            list[list[torch.Tensor]]: (num_sentences, num_tokens) each element is a vector of size hidden_dim
+        """
+        inputs = self.tokenizer(
+            sentences, return_tensors="pt", padding=True, truncation=True, add_special_tokens=True
+        ).to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+
+        embeddings = outputs.last_hidden_state  # Shape: (num_sentences, max_num_tokens, hidden_dim)
+        attention_mask = inputs["attention_mask"]  # Shape: (num_sentences, max_num_tokens)
+
+        # Remove padding tokens
+        return [embeddings[i, :int(attention_mask[i].sum().item())] for i in range(len(sentences))] #(num_sentences, num_tokens, hidden_dim)
+
+    def align_words_with_tokens(self, sentence: str, word_data_1d: list[dict], tokens: list[str]) -> List[dict]:
+        """
+        Example: sentence = "haven't", words = ["have", "n't"], tokens = ["haven", "'", "t"]
+        We can't get embeddings for these words. So, the only choice is to have only one word "haven't" with embedding as the average of the tokens' embeddings
+        Args:
+            sentence (str): The input sentence.
+            word_data_1d (list[dict]): a list of data for words in sentence with keys {"word", "pos"}.
+            tokens list[str]: a list of tokens in sentence
+
+        Returns:
+            List[dict]: A list of word data dictionary with keys {"word", "token", "token_range", "word_idx", "ignore"}.
+        """
+
+        # Remove '▁'(word boundary of tokenization models, not underscore) and whitespace(spaces, tabs, newlines)
         no_space_tokens = [re.sub(r"[▁\s]+", "", token) for token in tokens]
         no_space_words = [re.sub(r"[▁\s]+", "", word_data["word"]) for word_data in word_data_1d]
 
@@ -101,146 +163,40 @@ class BaseEmbedder(ABC):
 
         # find sentence-based index for each word
         words = [word_data["word"] for word_data in new_words_data]
-        word_indices = self.get_word_indices(text=sentence, words=words)
+        word_indices = self.get_word_indices(sentence=sentence, words=words)
         for word_data, word_idx in zip(new_words_data, word_indices):
             word_data["word_idx"] = word_idx
         
         return new_words_data
-    
-    def get_word_data_2d(self, sentences: List[str]):
-        word_data_2d = []
-        for sentence in sentences:
-            word_data_2d.append(self.get_word_data_1d(sentence=sentence))
-        return word_data_2d
 
-    def tokenize_into_tokens(self, text: str, add_special_tokens: bool = False) -> List[str]:
+    def get_word_embedding(self, sentences: list[str], token_embedding_2d: list[list[torch.Tensor]]=None) -> list[list[torch.Tensor]]:
         """
-        Tokenizes a text into subword tokens.
+        Generates word-level embeddings for a list of sentences.
 
         Args:
-            text (str): The input text.
-
+            sentences (list[str]): A list of sentences.
+            token_embedding_2d (list[list[torch.Tensor]]): (num_sentences, num_tokens), each element is a token vector of size hidden_dim
         Returns:
-            List[str]: A list of subword tokens.
+            list[list[torch.Tensor]] : (num_sentences, num_words), each element is a word vector of size hidden_dim
         """
-        return self.tokenizer.tokenize(text=text, add_special_tokens=add_special_tokens)
 
-    def get_num_tokens(self, text: str) -> int:
-        """
-        Gets the number of tokens in a text.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            int: The number of tokens in the text.
-        """
-        return len(self.tokenize_into_tokens(text=text))
-    
-    def get_word_indices(self, text: str, words: List[str]) -> List[int]:
-        """
-        Gets the indices for all words in a text.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            List[int]: A list of words' indices.
-        """
-        idx = 0
-        word_indices = []
-        for word in words:
-            word_idx = text.find(word, idx)
-            word_indices.append(word_idx)
-            idx = word_idx + len(word)
-        return word_indices
-
-    def get_token_embedding_1d(self, sentence: str) -> torch.Tensor:
-        """
-        Generates token-level embeddings for a sentence.
-
-        Args:
-            sentence (str): The input sentence.
-
-        Returns:
-            torch.Tensor: Token embeddings with shape (num_tokens, hidden_dim).
-        """
-        inputs = self.tokenizer(
-            sentence, return_tensors="pt", padding=True, truncation=True, add_special_tokens=True
-        ).to(self.device)
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-
-        return outputs.last_hidden_state[0]  # Shape: (num_tokens, hidden_dim)
-
-    def get_token_embedding_2d(self, sentences: List[str]) -> List[torch.Tensor]:
-        """
-        Generates token-level embeddings for a list of sentences.
-
-        Args:
-            sentences (List[str]): A list of sentences.
-
-        Returns:
-            List[torch.Tensor]: List of token embeddings per sentence.
-        """
-        inputs = self.tokenizer(
-            sentences, return_tensors="pt", padding=True, truncation=True, add_special_tokens=True
-        ).to(self.device)
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-
-        embeddings = outputs.last_hidden_state  # Shape: (num_sentences, max_num_tokens, hidden_dim)
-        attention_mask = inputs["attention_mask"]  # Shape: (num_sentences, max_num_tokens)
-
-        # Remove padding tokens
-        return [embeddings[i, :int(attention_mask[i].sum().item())] for i in range(len(sentences))] #(num_sentences, num_tokens, hidden_dim)
-
-    def get_word_embedding_1d(self, sentence: str, word_data_1d: List[dict]=None, token_embedding_1d = None) -> List[torch.Tensor]:
-        """
-        Generates word-level embeddings for a sentence.
-
-        Args:
-            sentence (str): The input sentence.
-
-        Returns:
-            List[torch.Tensor]:  Word embeddings (num_words, hidden_dim)
-        """
-        if word_data_1d is None:
-            word_data_1d = self.get_word_data_1d(sentence=sentence)
-
-        if token_embedding_1d is None:
-            token_embedding_1d = self.get_token_embedding_1d(sentence=sentence) # (num_tokens, hidden_dim)
-        
-        word_embedding_1d = []
-        for word_data in word_data_1d:
-            word_embedding = token_embedding_1d[word_data["token_range"][0]:word_data["token_range"][1]].mean(dim=0)
-            word_embedding_1d.append(word_embedding)
-        
-        return word_embedding_1d #(num_words, hidden_dim)
-
-    def get_word_embedding_2d(self, sentences: List[str], word_data_2d: List[List[dict]]=None, token_embedding_2d=None) :
-        """
-        Generates word-level embeddings for a batch of sentences.
-
-        Args:
-            sentences (List[str]): A list of sentences.
-
-        Returns:
-            List[List[torch.Tensor]]: Word embeddings for each sentence.
-        """
         if token_embedding_2d is None:
-            token_embedding_2d = self.get_token_embedding_2d(sentences=sentences) #(num_sentences, num_tokens, hidden_dim)
-
-        if word_data_2d is None:
-            word_data_2d = self.get_word_data_2d(sentences=sentences)
-
-        word_embedding_2d = [] #(num_sentences, num_words, hidden_dim)
-        for sentence, token_embedding_1d, word_data_1d in zip(sentences, token_embedding_2d, word_data_2d): 
-            word_embedding_2d.append(self.get_word_embedding_1d(sentence=sentence, word_data_1d=word_data_1d, token_embedding_1d=token_embedding_1d))
-
-        return word_embedding_2d #(num_sentences, num_words, hidden_dim)
+            token_embedding_2d = self.get_token_embedding(sentences=sentences) #(num_sentences, num_tokens, hidden_dim)
+        
+        word_data_2d = self.tokenize_into_words(sentences=sentences)
+        token_2d = self.tokenize_into_tokens(sentences=sentences, add_special_tokens=True)
+        
+        word_embedding_2d=[] #(num_sentences, num_words, hidden_dim)
+        for sentence, word_data_1d, token_1d, token_embedding_1d in zip(sentences, word_data_2d, token_2d, token_embedding_2d):
+            new_word_data_1d = self.align_words_with_tokens(sentence=sentence, word_data_1d=word_data_1d, tokens=token_1d)
+            
+            word_embedding_1d = [] #(num_words, hidden_dim)
+            for word_data in new_word_data_1d:
+                word_embedding = token_embedding_1d[word_data["token_range"][0]:word_data["token_range"][1]].mean(dim=0)
+                word_embedding_1d.append(word_embedding)
+            word_embedding_2d.append(word_embedding_1d)
+        
+        return word_embedding_2d
             
     def get_phrase_embedding(self, sentence: str, phrase: str, phrase_idx: int) -> torch.Tensor:
         """
@@ -254,8 +210,13 @@ class BaseEmbedder(ABC):
         Returns:
             torch.Tensor: The embedding of the phrase.
         """
-        word_data_1d = self.get_word_data_1d(sentence=sentence)
-        word_embedding_1d = self.get_word_embedding_1d(sentence=sentence, word_data_1d=word_data_1d)
+
+        word_data_1d = self.tokenize_into_words(sentences=[sentence])[0]
+        token_1d = self.tokenize_into_tokens(sentences=[sentence], add_special_tokens=True)[0]
+        
+        word_data_1d = self.align_words_with_tokens(sentence=sentence, word_data_1d=word_data_1d, tokens=token_1d)
+        word_embedding_1d = self.get_word_embedding(sentences=[sentence])[0]
+
         start = -1
         
         for i in range(len(word_data_1d)):
@@ -283,7 +244,7 @@ class BaseEmbedder(ABC):
             token += word_data_1d[i]["token"]
         new_phrase = token.replace("▁", " ").strip()
 
-        return  new_phrase, new_phrase_idx, phrase_embedding 
+        return new_phrase, new_phrase_idx, phrase_embedding 
     
     def get_cossim_phrases(self, phrase_1, phrase_idx_1, sentence_1, phrase_2, phrase_idx_2, sentence_2):
         _, _, emb_1 = self.get_phrase_embedding(phrase=phrase_1, phrase_idx=phrase_idx_1, sentence=sentence_1)
@@ -291,6 +252,6 @@ class BaseEmbedder(ABC):
         return F.cosine_similarity(emb_1.unsqueeze(0), emb_2.unsqueeze(0))
     
     def get_cossim_sentences(self, sentence_1, sentence_2):
-        emb_1 = self.get_token_embedding_1d(sentence=sentence_1)[0]
-        emb_2 = self.get_token_embedding_1d(sentence=sentence_2)[0]
+        emb_1 = self.get_token_embedding(sentence=sentence_1)[0][0]
+        emb_2 = self.get_token_embedding(sentence=sentence_2)[0][0]
         return F.cosine_similarity(emb_1.unsqueeze(0), emb_2.unsqueeze(0))

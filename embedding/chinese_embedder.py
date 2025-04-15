@@ -1,4 +1,3 @@
-from typing import List
 from typing_extensions import override 
 from .base import BaseEmbedder
 from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -13,17 +12,11 @@ class ChineseEmbedder(BaseEmbedder):
         self.ignore_pos= ["w"] #punctuation
 
     @override
-    def tokenize_into_words(self, text: str) -> List[str]:
-        """
-        Split a text into a list of words.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            List[str]: A list of words.
-        """
-        words = self.tok([text])[0]
-        pos_1d = self.pos(words)
-        words_data = [{"word": word, "pos": pos} for word, pos in zip(words, pos_1d)]
-        return words_data
+    def tokenize_into_words(self, sentences: list[str]) -> list[str]:
+        word_2d = self.tok(sentences)
+        pos_2d = self.pos(word_2d)
+        word_data_2d = []
+        for word_1d, pos_1d in zip(word_2d, pos_2d):
+            word_data_1d = [{"word": word, "pos": pos} for word, pos in zip(word_1d, pos_1d)]
+            word_data_2d.append(word_data_1d)
+        return word_data_2d

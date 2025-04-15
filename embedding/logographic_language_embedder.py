@@ -4,23 +4,15 @@ from .base import BaseEmbedder
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
 class LogographicLanguagesEmbedder(BaseEmbedder):
-    """Sentence embedder for all logographic languages using a Transformer model."""
-
     def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        """Initialize the embedder with the pretrained model."""
         super().__init__(model=model, tokenizer=tokenizer)
         self.ignore_pos = []
 
     @override
-    def tokenize_into_words(self, text: str) -> List[dict]:
-        """
-        Gets the words data for a text.
-
-        Args:
-            text (str): The input text.
-
-        Returns:
-            List[dict]: A list of words data.
-        """
-        words_data = [{"word": word, "pos": ""} for word in self.tokenize_into_tokens(text)]
-        return words_data
+    def tokenize_into_words(self, sentences: list[str]) -> list[dict]:
+        word_2d = self.tokenize_into_tokens(sentences=sentences)
+        word_data_2d = []
+        for word_1d in word_2d:
+            word_data_1d = [{"word": word, "pos": ""} for word in word_1d]
+            word_data_2d.append(word_data_1d)
+        return word_data_2d
