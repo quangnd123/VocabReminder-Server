@@ -1,0 +1,106 @@
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+{"id":"gen-1744438948-NpFfjTemJADqBMuyRMnl","provider":"Chutes","model":"nvidia/llama-3.1-nemotron-ultra-253b-v1","object":"chat.completion","created":1744438948,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","index":0,"message":{"role":"assistant",
+"content":"Here is the list of languages that are **locographic** (i.e., each word is a single character, not separated by spaces like Chinese):\n\n* **
+50. Korean** (Note: While Korean is a subject-object-verb language and uses spaces between words in modern writing, its script, Hangul, is considered a unique alphabet. However, some sources might group it with Chinese due to historical writing influences, though this is not entirely accurate. I've included it here with this clarification.)\n* **
+44. Japanese** (Uses a combination of Kanji, Hiragana, and Katakana; Kanji characters are logograms, but Hiragana and Katakana are syllabic. However, since Kanji plays a significant role, it's often considered in the broader category of logographic languages.)\n* **
+150. Chinese** (Standard Chinese uses a logographic system where each character represents a word or a morpheme. This includes various dialects like Mandarin, which is implied here.)\n* **
+170. Wu Chinese** (A dialect of Chinese, also logographic)\n* **
+172. Cantonese** (Another dialect of Chinese, also logographic)\n\n**Languages that might not fit neatly into either category or require clarification:**\n\n* **
+76. Sanskrit** (Uses the Devanagari script, which is abugida�a system where each character represents a consonant-vowel pair. While not strictly logographic, it's not purely alphabetic either. It's more accurate to describe it as abugida.)\n* **
+132. Nahuatl languages** (Originally used pictographs and logograms, but modern Nahuatl often employs the Latin alphabet. Historical and modern usage differs.)\n* **134. Egyptian Arabic** (Uses the Arabic script, which is a consonantal alphabet with some logographic elements in certain contexts, but primarily considered an abjad.)\n* **
+110. Arabic** (Similar to Egyptian Arabic, it uses a consonantal alphabet with some contextual logographic elements but is primarily an abjad.)\n* **
+12. Chuvash** (Uses the Cyrillic script, which is alphabetic, but Chuvash has a unique set of characters added to the standard Cyrillic alphabet. It remains alphabetic.)\n* **
+20. Esperanto** (Created to be simple and uses the Latin alphabet with a phonetic system. It's explicitly designed to be easy to learn and is alphabetic.)\n* **
+121. Lojban** (A constructed language with a unique writing system that is both a syllabary and an alphabet, designed for precision in expression. It's not logographic.)\n* **Epigraphic or historical languages** (e.g., Sanskrit in ancient times, Egyptian hieroglyphs not listed here) might use logographic or pictographic systems, but based on the provided list and common modern usage, the above clarifications focus on the languages' typical representation.\n\n**Note:** The classification of languages into \"logographic\" and \"space-delimited\" (alphabetic/syllabic) can sometimes be debated or nuanced due to the complexities of writing systems and historical changes. The above list aims to provide a clear distinction based on the most common understanding and usage of each language's script.",
+"refusal":null,"reasoning":null}}],"usage":{"prompt_tokens":1142,"completion_tokens":659,"total_tokens":1801}}
