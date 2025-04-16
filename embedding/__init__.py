@@ -30,12 +30,15 @@ supported_embedders: dict[str, BaseEmbedder] = {
     "yue": zh_embedder,
     "wuu": zh_embedder,
     "ja": ja_embedder,
-    "ko": ko_embedder
+    "ko": ko_embedder,
+
+    "locographic": locographic_embedder,
+    "space-delimited": space_delimited_lang_embedder
 }
 
 def get_embedders(language: str) -> BaseEmbedder:
     if language in supported_embedders:
         return supported_embedders[language]
     if language in locographic_languages:
-        return locographic_embedder
-    return space_delimited_lang_embedder
+        return supported_embedders["locographic"]
+    return supported_embedders["space-delimited"]
