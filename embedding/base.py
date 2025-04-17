@@ -169,7 +169,7 @@ class BaseEmbedder(ABC):
         
         return new_words_data
 
-    def get_word_embedding(self, sentences: list[str], token_embedding_2d: list[list[torch.Tensor]]=None) -> list[list[torch.Tensor]]:
+    def get_word_embedding(self, sentences: list[str], token_2d: list[list[str]], token_embedding_2d: list[list[torch.Tensor]]) -> list[list[torch.Tensor]]:
         """
         Generates word-level embeddings for a list of sentences.
 
@@ -179,24 +179,21 @@ class BaseEmbedder(ABC):
         Returns:
             list[list[torch.Tensor]] : (num_sentences, num_words), each element is a word vector of size hidden_dim
         """
-
-        if token_embedding_2d is None:
-            token_embedding_2d = self.get_token_embedding(sentences=sentences) #(num_sentences, num_tokens, hidden_dim)
-        
         word_data_2d = self.tokenize_into_words(sentences=sentences)
-        token_2d = self.tokenize_into_tokens(sentences=sentences, add_special_tokens=True)
         
         word_embedding_2d=[] #(num_sentences, num_words, hidden_dim)
+        new_word_data_2d=[]
         for sentence, word_data_1d, token_1d, token_embedding_1d in zip(sentences, word_data_2d, token_2d, token_embedding_2d):
             new_word_data_1d = self.align_words_with_tokens(sentence=sentence, word_data_1d=word_data_1d, tokens=token_1d)
-            
+            new_word_data_2d.append(new_word_data_1d)
+
             word_embedding_1d = [] #(num_words, hidden_dim)
             for word_data in new_word_data_1d:
                 word_embedding = token_embedding_1d[word_data["token_range"][0]:word_data["token_range"][1]].mean(dim=0)
                 word_embedding_1d.append(word_embedding)
             word_embedding_2d.append(word_embedding_1d)
         
-        return word_embedding_2d
+        return new_word_data_2d, word_embedding_2d
             
     def get_phrase_embedding(self, sentence: str, phrase: str, phrase_idx: int) -> torch.Tensor:
         """
@@ -211,14 +208,18 @@ class BaseEmbedder(ABC):
             torch.Tensor: The embedding of the phrase.
         """
 
-        word_data_1d = self.tokenize_into_words(sentences=[sentence])[0]
         token_1d = self.tokenize_into_tokens(sentences=[sentence], add_special_tokens=True)[0]
-        
+        token_embedding_1d = self.get_token_embedding(sentences=[sentence])[0]
+
+        word_data_1d = self.tokenize_into_words(sentences=[sentence])[0]
         word_data_1d = self.align_words_with_tokens(sentence=sentence, word_data_1d=word_data_1d, tokens=token_1d)
-        word_embedding_1d = self.get_word_embedding(sentences=[sentence])[0]
+        
+        word_embedding_1d = []
+        for word_data in word_data_1d:
+            word_embedding = token_embedding_1d[word_data["token_range"][0]:word_data["token_range"][1]].mean(dim=0)
+            word_embedding_1d.append(word_embedding)
 
         start = -1
-        
         for i in range(len(word_data_1d)):
             if phrase_idx >= word_data_1d[i]["word_idx"]:
                 start = i
@@ -229,8 +230,8 @@ class BaseEmbedder(ABC):
         phrase_end_idx = phrase_idx + len(phrase)
         for i in range(start+1, len(word_data_1d)):
             if phrase_end_idx > word_data_1d[i]["word_idx"]:
-                end = i
-            else:  
+                end = i+1
+            else:
                 break
 
         if start == -1 or end ==-1:

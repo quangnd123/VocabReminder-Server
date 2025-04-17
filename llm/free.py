@@ -1,19 +1,27 @@
 import httpx
 import re 
 import asyncio
-from typing import List
-import pprint
 import json
+import sys
+if "F:\\VocabReminder\\backend" not in sys.path:
+    sys.path.append("F:\\VocabReminder\\backend")
+
+from logger.logger import get_logger
+logger = get_logger(__name__, "freeLLM.log")
+
 class FreeLLM():
     def __init__(self):
         self.API_KEY = "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"
         #self.model = "google/gemini-2.0-flash-lite-preview-02-05:free"
-        self.model = "qwen/qwen2.5-vl-32b-instruct:free"
-        self.batch_number = 15
+        #self.model = "qwen/qwen2.5-vl-32b-instruct:free"
+        self.model = "google/gemini-2.0-flash-exp:free"
+        self.batch_number = 50
         self.system_prompt = """
 You are an intelligent language assistant that helps users memorize vocabulary by finding meaningful connections between words in a given text and stored vocabulary words.
 """
-    async def send_prompt(self, prompt, model, system_prompt=None):
+    async def send_prompt(self, prompt, model=None, system_prompt=None):
+        if model == None:
+            model = self.model
         if system_prompt == None:
             system_prompt = self.system_prompt
         async with httpx.AsyncClient() as client:
@@ -48,13 +56,18 @@ You are an intelligent language assistant that helps users memorize vocabulary b
         formatted_text = ""
         id = 1
         for sentence_data in sentence_data_1d:
-            for (word_data, related_phrase_data_1d) in zip(sentence_data['word_data_1d'], sentence_data['related_phrase_data_2d']):
+            for word_data, related_phrase_data_1d in zip(sentence_data['word_data_1d'], sentence_data['related_phrase_data_2d']):
                 for related_phrase_data in related_phrase_data_1d:
+                    if word_data['ignore'] == True:
+                        continue
                     formatted_text += f"{id} # {word_data['word']} # {related_phrase_data.payload['phrase']} # {sentence_data['sentence']} # {related_phrase_data.payload['sentence']}\n"
-                    id+=1
-                    if id == self.batch_number:
+                    
+                    if id % self.batch_number == 0:
                         result.append(formatted_text)
                         formatted_text = ""
+                    id+=1
+        if formatted_text:
+            result.append(formatted_text)
         return result
     
     def parse_data(self, llm_answer, sentence_data_1d):
@@ -64,7 +77,9 @@ You are an intelligent language assistant that helps users memorize vocabulary b
         data_id = 1
         line_idx = 0
         for sentence_data in sentence_data_1d:
-            for related_phrase_data_1d in sentence_data['related_phrase_data_2d']:
+            for word_data, related_phrase_data_1d in zip(sentence_data['word_data_1d'], sentence_data['related_phrase_data_2d']):
+                if word_data['ignore'] == True:
+                    continue
                 for related_phrase_data in related_phrase_data_1d:
                     # parse line
                     line = lines[line_idx]
@@ -78,8 +93,6 @@ You are an intelligent language assistant that helps users memorize vocabulary b
                             if relation != None and reminder != None:
                                 related_phrase_data.payload["reminder"] = reminder
                     else:
-                        print("PARSING ERROR")
-                        print(line)
                         line_idx+=1 
 
                     data_id+=1
@@ -87,84 +100,54 @@ You are an intelligent language assistant that helps users memorize vocabulary b
                     if line_idx >= len(lines):
                         return
 
-    def get_reminders_text_prompt_template(reminding_language: str):
-        prompt =  f"""
+    def get_reminders_text_prompt_template(self, reminding_language: str):
+        prompt = f"""
 ## Task:
-You are assisting language learners reading words online with a vocabulary list of vocab they want to memorize.
-** Input Format:
+You're helping a language learner recall vocabulary by linking it with real-world usage they encounter while browsing.
+
+**Input Format:**
 <ID> # <word users see> # <vocab users want to memorize> # <word_context> # <vocab_context>
 
-** Output Format:
-<ID same as input> # UNDERSTANDABLE connection between word and vocab # Concise, vivid mnemonic that naturally links the two words.
+**Output Format:**
+<ID> # <CONNECTION_TYPE> # <Concise, vivid mnemonic reminder in {reminding_language} that clearly connects the two words and their contexts. Include both words and refer to their original sentences.>
 
-- For each pair of word, find a meaningful connection to the phrase users want to memorize. 
-- Possible connection examples: Synonym, Antonym, Hypernym, Hyponym, Meronym, Holonym, Causality, Troponym, Complementarity, Etymology, Collocation. 
-- You can be creative for connections
-- Context is provided for both word and vocab to clarify meaning.
-- DO NOT generate output for cases where no strong, understandable connection exists. DO NOT force weak or vague links. If there is NO valid connection, do NOT generate output for that ID at all. DO NOT output "EMPTY" or any placeholder. JUST SKIP IT COMPLETELY.
-- Follow the exact output format to ensure proper parsing with Python.
-- Allowed Collocation example:
-adverb + adjective: completely satisfied (NOT downright satisfied)
-adjective + noun: excruciating pain (NOT excruciating joy)
-noun + noun: a surge of anger (NOT a rush of anger)
-noun + verb: lions roar (NOT lions shout)
-verb + noun: commit suicide (NOT undertake suicide)
-verb + expression with preposition: burst into tears (NOT blow up in tears)
-verb + adverb: wave frantically (NOT wave feverishly)
-- Provide the reminders in {reminding_language}, but keep eveything in the input in its own language.
+**Instructions:**
+- For each line, find a strong and understandable link between the word the user saw and the vocabulary they’re trying to remember.
+- Use semantic relationships such as: Synonym, Antonym, Hypernym, Hyponym, Meronym, Holonym, Causality, Troponym, Complementarity, Etymology, or Collocation.
+- You may also use grammar links (e.g. same root), emotional cues, visual imagery, or shared phrases.
+- Use the provided contexts to disambiguate meanings and inspire the mnemonic.
+- If the vocabulary word the **user** wants to memorize has already appeared in the sentence seen, emphasize repeated exposure in a new context to reinforce memory.
+- The mnemonic reminder should include:
+  - Both the seen word and the vocab word (in their original form),
+  - A vivid mental connection in {reminding_language},
+  - Reference to both contexts to make the association stronger.
+- DO NOT include outputs for pairs without a strong link. Only generate output when there's a direct or vivid link that would help the user **recall the vocab word** later.
+- DO NOT write placeholders like "EMPTY". Just skip those IDs.
+- DO NOT explain your reasoning, DO NOT ADD extra text or headers.
+- Keep output format strict:  
+  <ID> # <CONNECTION_TYPE> # <Mnemonic reminder>
 
-**EXAMPLES:**
+**Examples:**
 
-Input:
-2 # Hot # Cold # The soup was too hot to drink. # She preferred her coffee cold in summer.
-Output:
-2 # Antonym # 'Hot' and 'Cold' are opposites. If something is hot, it has a high temperature, but if it’s cold, it has a low temperature.
+1 # The # rainbow # The sun rises in the east. # A rainbow appeared after the rain.
+→ 1 # No relation
 
-Input:
-3 # Rose # Flower # She received a rose on Valentine's Day. # The garden was full of beautiful flowers.
-Output:
-3 # Hypernym # A 'Rose' is a type of 'Flower'. Flowers include roses, tulips, and daisies.
+2 # Hot # Cold # The soup was too hot to drink. # She preferred her coffee cold in summer.  
+→ 2 # Antonym # 'Hot' và 'Cold' là hai cực đối lập: súp nóng không uống được, còn cà phê lạnh lại được ưa chuộng vào mùa hè. Hình ảnh nóng-lạnh giúp bạn nhớ rõ hơn.
 
-Input:
-5 # Tree # Leaf # The tree swayed gently in the wind. # A single leaf drifted to the ground.
-Output: 
-5 # Meronym # A 'Leaf' is a part of a 'Tree'. Trees have leaves, branches, and bark.
+5 # Tree # Leaf # The tree swayed gently in the wind. # A single leaf drifted to the ground.  
+→ 5 # Meronym # 'Leaf' là một phần của 'Tree'. Khi thấy cây đung đưa trong gió, bạn nhớ đến chiếc lá rơi – gắn kết hình ảnh tự nhiên.
 
-Input:
-7 # Smoking # Lung cancer # My dad loves smoking # My mother has a lung cancer.
-Output:
-7 # Causality # Smoking can cause lung cancer and other health problems.
-
-Input:
-9 # Married # Single # She has been married for five years. # He is still single and looking for a partner.
-Output:
-9 # Complementarity # 'Married' and 'Single' are mutually exclusive. If someone is married, they are not single, and vice versa.
-
-Input:
-13 # Fast # Food # He prefers fast food over home-cooked meals. # Fast food is often unhealthy.
-Output:
-13 # Collocation # 'Fast' and 'Food' commonly appear together. 'Fast food' means quickly prepared meals like burgers and fries.
-
-Input:
-10 # Cancer # Love # I have cancer. # I love you.
-Output:
-10 # #
-
-Input:
-13 # Do # Yes I do # DO # Do you want this?
-11 # Likes # Like # She likes me. # I like you. 
-12 # Import # Export # The country imports a lot of rice. # They export high-quality coffee beans.
-Output:
-13 # Identical # Hey, you want to memorize "do" right? Here it is.
-11 # Same Root # "Likes" is the third-person singular present tense form of the verb "like"
-12 # Same root # 'Import' and 'Export' share the root 'port,' meaning 'carry.' Import = IN (carry into a country), Export = EX (carry out of a country).
+7 # Smoking # Lung cancer # My dad loves smoking. # My mother has a lung cancer.  
+→ 7 # Causality # 'Smoking' có thể dẫn đến 'lung cancer'. Hình ảnh người cha hút thuốc và người mẹ bệnh là lời nhắc mạnh mẽ về mối liên hệ nhân quả.
 
 **END OF EXAMPLES**
 
-Now, Create output for this input:
-Input:
+
+**Now, generate output for this input:**
 
 """
+
         return prompt
 
     async def get_reminders_text(self, sentence_data_1d: list, reminding_language: str ):
@@ -174,15 +157,15 @@ Input:
         tasks = []
         for prompt_input in prompt_inputs:
             prompt = (prompt_template + prompt_input).strip()
-            if prompt:
-                tasks.append(self.send_prompt(prompt=prompt))
+            logger.info(prompt)
+            tasks.append(self.send_prompt(prompt=prompt, model=self.model))
         responses = await asyncio.gather(*tasks)
         
         answer = ""
         for response in responses:
             answer += response["choices"][0]["message"]["content"].strip() + "\n"
         answer = answer.strip()
-
+        logger.info(answer)
         self.parse_data(llm_answer=answer, sentence_data_1d=sentence_data_1d)
         return 
         

@@ -8,19 +8,22 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from collections import defaultdict
 
 from models import *
 from qdrant import AsyncQdrant
 from postgresql import PostgreSQLDatabase
 from llm.free import FreeLLM
-# from filter import RelatedPhrasesFilter
-from test.data import word_sentence_pairs
+from filter import RelatedPhrasesFilter
 from embedding import get_embedders
 from logger.logger import get_logger
 from fasttext_092.language_detection import detect_language
-from pathlib import Path
+
 
 ########################## INIT ##########################
+base_dir = os.path.dirname(__file__)
+
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 postgres_db_url = os.getenv("POSTGRES_DATABASE_URL")
@@ -30,8 +33,8 @@ postgres_db = PostgreSQLDatabase(db_url=postgres_db_url)
 logger = get_logger(__name__, "server.log")
 
 freeLLM = FreeLLM()
-# relatedPhrasesFilter = RelatedPhrasesFilter()
-qdrant_db = AsyncQdrant(collection_name="test", embedding_model_dims=1024, path= "./qdrant_db", on_disk=True)
+relatedPhrasesFilter = RelatedPhrasesFilter()
+qdrant_db = AsyncQdrant(collection_name="test", embedding_model_dims=1024, path= f"{os.path.dirname(base_dir)}/qdrant_db", on_disk=True)
 
 # FastAPI App
 app = FastAPI(debug=True)
@@ -126,60 +129,76 @@ async def delete_phrases(delete_phrases_request: DeletePhrasesRequest):
     except Exception as e:
         return DeletePhrasesResponse(status="error", error=str(e))
 
-# @app.post("/reminders-text")
-# async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
-#     try:
-#         user_id = reminders_text_request.user_id
-#         reading_languages = reminders_text_request.reading_languages
-#         reminding_language = reminders_text_request.reminding_language
-#         learning_languages = reminders_text_request.learning_languages
+@app.post("/reminders-text")
+async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
+    try:
+        user_id = reminders_text_request.user_id
+        reading_languages = reminders_text_request.reading_languages
+        reminding_language = reminders_text_request.reminding_language
+        learning_languages = reminders_text_request.learning_languages
 
-#         sentences = []
-#         sentences_language = []
-#         for sentence in reminders_text_request.sentences:
-#             sentence_language = detect_language(sentence)
-#             if sentence_language in reading_languages: 
-#                 sentences.append(sentence)
-#                 sentences_language.append(sentence_language)
+        # detect and filter sentences languages
+        sentences = []
+        sentences_language = []
+        for sentence in reminders_text_request.sentences:
+            sentence_language, confidence = detect_language(sentence)
+            if confidence >= 0.25 and sentence_language in reading_languages: 
+                sentences.append(sentence)
+                sentences_language.append(sentence_language)
+
+        # tokenize 
+        # all embedders use the same token embedding regardless of language
+        token_2d = get_embedders("eng").tokenize_into_tokens(sentences=sentences, add_special_tokens=True) 
+        token_embedding_2d = get_embedders("eng").get_token_embedding(sentences=sentences)
+
+        # group sentences of the same languages
+        grouped = defaultdict(lambda: {"sentences": [], "token_2d":[], "token_embedding_2d": []})
+        for sentence, token_1d, token_embedding_1d, lang in zip(sentences, token_2d, token_embedding_2d, sentences_language):
+            grouped[lang]["sentences"].append(sentence)
+            grouped[lang]["token_2d"].append(token_1d)
+            grouped[lang]["token_embedding_2d"].append(token_embedding_1d)
+
+        sentences = []
+        word_data_2d = []
+        word_embedding_2d = []
+        for lang in grouped.keys():
+            lang_word_data_2d, lang_word_embedding_2d = get_embedders(lang).get_word_embedding(grouped[lang]["sentences"], 
+                                                                                               token_2d=grouped[lang]["token_2d"], 
+                                                                                               token_embedding_2d=grouped[lang]["token_embedding_2d"])
+            sentences.extend(grouped[lang]["sentences"])
+            word_data_2d.extend(lang_word_data_2d)
+            word_embedding_2d.extend([[embedding.tolist() for embedding in embedding_1d] for embedding_1d in lang_word_embedding_2d])
+
+        # search vector db
+        related_phrase_data_3d = await qdrant_db.search_3d(query=word_embedding_2d, 
+                                                           filters={"user_id": user_id, 
+                                                                    "language": {"in": learning_languages}}) #[num_sentences, num_words, num_related_words] an element is a ScorePoint
+        logger.info("RELATED DATA")
+        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d) :
+            logger.info("sentence: " + sentence)
+            for related_phrase_data_1d, word_data in zip(related_phrase_data_2d, word_data_1d):
+                logger.info("word: " + word_data["word"])
+                for related_phrase_data in related_phrase_data_1d:
+                    logger.info(str(related_phrase_data.score) + " # " + related_phrase_data.payload["phrase"] + " # " + related_phrase_data.payload["sentence"])
+
+        related_phrase_data_3d = relatedPhrasesFilter.filter(related_phrase_data_3d=related_phrase_data_3d)
+        logger.info("FILTERED RELATED DATA")
+        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d) :
+            logger.info("sentence: " + sentence)
+            for related_phrase_data_1d, word_data in zip(related_phrase_data_2d, word_data_1d):
+                logger.info("word: " + word_data["word"])
+                for related_phrase_data in related_phrase_data_1d:
+                    logger.info(str(related_phrase_data.score) + " # " + related_phrase_data.payload["phrase"] + " # " + related_phrase_data.payload["sentence"])
         
-#         word_data_2d = [] #[num_sentences, num_words] an element is a dict
-#         word_embedding_2d = [] #[num_sentences, num_words] an element is a list of float
-#         # all embedders use the same token embedding regardless of language
-#         token_embedding_2d = get_embedders("eng").get_token_embedding_2d(sentences=sentences) #[num_sentences, num_tokens] an element is a list of float
-#         for token_embedding_1d, sentence, sentence_language in zip(token_embedding_2d, sentences, sentences_language):
-#             embedder = get_embedders(sentence_language)
-#             word_data_1d = embedder.get_word_data_1d(sentence=sentence)
-#             word_embedding_1d = embedder.get_word_embedding_1d(sentence=sentence, word_data_1d=word_data_1d, token_embedding_1d=token_embedding_1d)
-#             word_data_2d.append(word_data_1d)
-#             word_embedding_2d.append(word_embedding_1d.tolist())
+        sentence_data_1d = []
+        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d):
+            sentence_data_1d.append({"sentence": sentence, "word_data_1d": word_data_1d, "related_phrase_data_2d": related_phrase_data_2d})       
 
-#         related_phrase_data_3d = await qdrant_db.search_3d(query=word_embedding_2d, 
-#                                                            filters={"user_id": user_id, 
-#                                                                     "language": {"in": learning_languages}}) #[num_sentences, num_words, num_related_words] an element is a ScorePoint
-#         related_phrase_data_3d = relatedPhrasesFilter.filter(related_phrase_data_3d=related_phrase_data_3d)
-
-#         sentence_data_1d = []
-#         for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d):
-#             sentence_data_1d.append({"sentence": sentence, "word_data_1d": word_data_1d, "related_phrase_data_2d": related_phrase_data_2d})       
-
-#         prompt = freeLLM.get_reminders_text_prompt_input(sentence_data_1d, remind_language = reminding_language)
-#         logger.info("PROMPT: ")
-#         logger.info(prompt)
-#         response = await freeLLM.send_prompt(prompt=prompt)
-#         answer = response["choices"][0]["message"]["content"]
-
-#         freeLLM.parse_data(llm_answer=answer, sentence_data_1d=sentence_data_1d)
-
-#         data = relatedPhrasesFilter.sample_reminder(sentence_data_1d=sentence_data_1d)
-#         logger.info("ANSWER: ")
-#         logger.info(answer)
-#         return RemindersTextResponse(status="success", data=data)
-#     except Exception as e:
-#         raise RemindersTextResponse(status="error", error=str(e))
-
-
-
-
+        await freeLLM.get_reminders_text(sentence_data_1d=sentence_data_1d, reminding_language = reminding_language)
+        data = relatedPhrasesFilter.sample_reminder(sentence_data_1d=sentence_data_1d)
+        return RemindersTextResponse(status="success", data=data)
+    except Exception as e:
+        raise RemindersTextResponse(status="error", error=str(e))
 
 ########################## CLient ##########################
 

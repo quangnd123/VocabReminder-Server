@@ -1,12 +1,12 @@
 import heapq
 import random
-from models import RemindersSentenceData, ReminderSentenceData
+from models import RemindersTextResponseSentenceData, RemindersTextResponseData
 
 class RelatedPhrasesFilter():
     def __init__(self):
         pass
 
-    def filter_1(self, related_phrase_data_2d: list, max_unique_sentence: int = 2):
+    def filter_1(self, related_phrase_data_2d: list, max_unique_sentence: int = 1):
         # For each word, only keep at most <max_unique_sentence> related words in the same sentence
         # Why? Users are reading a sentence: "I love you". There is a sentence in db: "He loves her". 
         # The word "I" will be very closed to "He", "loves", and "her" because 2 sentences have alike meaning.
@@ -25,7 +25,7 @@ class RelatedPhrasesFilter():
         
         return filtered_related_phrase_data_2d
     
-    def filter_2(self, related_phrase_data_2d: list, max_unique_phrase_sentence: int = 2):
+    def filter_2(self, related_phrase_data_2d: list, max_unique_phrase_sentence: int = 1):
         # A sentence has words, a word has related phrases in other sentences. 
         # A sentence only allows at most <max_unique_phrase_sentence> occurences of a unique pair of related phrase-sentence.  
         # Why? Users are reading a sentence: "I love you". There is a sentence in db: "He loves her".    
@@ -41,7 +41,7 @@ class RelatedPhrasesFilter():
                 if key not in score_unique_word_sentence:
                     score_unique_word_sentence[key] = []
                 
-                # Maintain a min-heap to keep the top 3 scores
+                # Maintain a min-heap to keep the top scores
                 if len(score_unique_word_sentence[key]) < max_unique_phrase_sentence:
                     heapq.heappush(score_unique_word_sentence[key], score)
                 elif score > score_unique_word_sentence[key][0]: # If higher than the lowest in the heap
@@ -61,14 +61,14 @@ class RelatedPhrasesFilter():
 
         return filtered_related_phrase_data_2d
     
-    def sample(self, related_phrase_data_2d: list, limit=3):
+    def sample(self, related_phrase_data_2d: list, limit=1):
         # each word is allowed to have at most <limit> related phrases
         sampled_related_phrase_data_2d = []
         for related_phrase_data_1d in related_phrase_data_2d:
             if len(related_phrase_data_1d) <= limit:
                 sampled_related_phrase_data_2d.append(related_phrase_data_1d)
             else:
-                sampled_related_phrase_data_2d.append(random.sample(related_phrase_data_1d, limit))
+                sampled_related_phrase_data_2d.append(random.choices(related_phrase_data_1d, weights=[d.score for d in related_phrase_data_1d], k=limit))
         return sampled_related_phrase_data_2d
     
     def filter(self, related_phrase_data_3d):
@@ -81,13 +81,13 @@ class RelatedPhrasesFilter():
             filtered_related_phrase_data_3d.append(filtered_related_phrase_data_2d)
         return filtered_related_phrase_data_3d
     
-    def sample_reminder(self, sentence_data_1d, limit = 3):
-        results: list[RemindersSentenceData] = []
+    def sample_reminder(self, sentence_data_1d, limit = 999):
+        results: list[RemindersTextResponseData] = []
 
         for sentence_data in sentence_data_1d:
             sentence = sentence_data["sentence"]
-            words = sentence_data["words"]
-            word_indices = sentence_data["word_indices"]
+            words =  [word_data["word"] for word_data in sentence_data["word_data_1d"]] 
+            word_indices = [word_data["word_idx"] for word_data in sentence_data["word_data_1d"]]
             related_phrase_data_2d = sentence_data["related_phrase_data_2d"]
 
             # Find words that have at least one related phrase with "reminder"
@@ -108,7 +108,7 @@ class RelatedPhrasesFilter():
             reminders_data = []
             for word_idx, related_phrase_data_1d in chosen_words:
                 related_phrase_data = random.choice(related_phrase_data_1d)
-                reminders_data.append(ReminderSentenceData(
+                reminders_data.append(RemindersTextResponseSentenceData(
                     word=words[word_idx],
                     word_idx=word_indices[word_idx],
                     related_phrase=related_phrase_data.payload["phrase"],
@@ -116,7 +116,7 @@ class RelatedPhrasesFilter():
                     reminder=related_phrase_data.payload["reminder"]
                 ))
 
-            results.append(RemindersSentenceData(sentence=sentence, reminders_data=reminders_data))
+            results.append(RemindersTextResponseData(sentence=sentence, reminders_data=reminders_data))
 
         return results
 
