@@ -66,8 +66,10 @@ class AsyncQdrant():
             self.client = AsyncQdrantClient(**params)
 
         self.collection_name = collection_name
+        self.embedding_model_dims = embedding_model_dims
+        self.on_disk = on_disk
 
-    async def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
+    async def create_col(self, distance: Distance = Distance.COSINE):
         """
         Create a new collection.
 
@@ -85,7 +87,7 @@ class AsyncQdrant():
 
         await self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            vectors_config=VectorParams(size=self.embedding_model_dims, distance=distance, on_disk=self.on_disk),
         )
 
     async def insert(self, vectors: list, payloads: list = None, ids: list = None):
