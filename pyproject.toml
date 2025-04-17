@@ -20,4 +20,5 @@ dependencies = [
     "transformers>=4.50.2",
     "underthesea>=6.8.4",
     "uvicorn>=0.34.0",
+    "slowapi>=0.1.9",
 ]

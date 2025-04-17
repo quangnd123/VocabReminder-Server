@@ -6,10 +6,12 @@ import uvicorn
 import os 
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from collections import defaultdict
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
 from models import *
 from qdrant import AsyncQdrant
@@ -46,10 +48,16 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# Define the rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+app.state.limiter = limiter
+app.add_exception_handler(HTTPException, _rate_limit_exceeded_handler)
 
 ########################## BROWSER EXTENSION ########################## 
 
 @app.post("/create_phrase")
+@limiter.limit("1/second") 
 async def create_phrase(create_phrase_request: CreatePhraseRequest):
     try:
         user_id = create_phrase_request.user_id
@@ -109,6 +117,7 @@ async def create_phrase(create_phrase_request: CreatePhraseRequest):
         return CreatePhraseResponse(status="error", error=str(e))
 
 @app.post("/get_phrases")
+@limiter.limit("1/second") 
 async def get_phrases(get_phrase_request: GetPhrasesRequest):
     try:
         hits = await qdrant_db.list(filters={"user_id": get_phrase_request.user_id})
@@ -122,6 +131,7 @@ async def get_phrases(get_phrase_request: GetPhrasesRequest):
         raise GetPhrasesResponse(status="error", error=str(e))
     
 @app.post("/delete_phrases")
+@limiter.limit("1/second") 
 async def delete_phrases(delete_phrases_request: DeletePhrasesRequest):
     try:
         await qdrant_db.delete_1d(id_1d=delete_phrases_request.phrase_ids)
@@ -130,6 +140,7 @@ async def delete_phrases(delete_phrases_request: DeletePhrasesRequest):
         return DeletePhrasesResponse(status="error", error=str(e))
 
 @app.post("/reminders-text")
+@limiter.limit("1/second") 
 async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
     try:
         user_id = reminders_text_request.user_id
@@ -203,6 +214,7 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
 ########################## CLient ##########################
 
 @app.post("/update_user")
+@limiter.limit("1/second") 
 async def update_user(updated_user: UpdateUserRequest):
     try:
         user = await postgres_db.update_user(user_id=updated_user.id, 
