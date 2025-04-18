@@ -2036,3 +2036,9 @@ You're helping a language learner recall vocabulary by linking it with real-worl
 60 # Hypernym # "Con mèo" là một loại "con" vật, tương tự như "con chó".
 68 # Synonym # "Cô" ấy mặc váy đỏ, "Cô giáo" dạy học. Cả hai đều chỉ một người phụ nữ.
 70 # Synonym # Chiếc váy đỏ "xinh đẹp" như một bức tranh phong cảnh "beautiful landscape".
+2025-04-18 16:00:13 [INFO] httpx: HTTP Request: GET https://openrouter.ai/api/v1/models "HTTP/1.1 200 OK"
+2025-04-18 16:01:06 [INFO] httpx: HTTP Request: GET https://openrouter.ai/api/v1/models "HTTP/1.1 200 OK"
+2025-04-18 16:01:29 [INFO] httpx: HTTP Request: GET https://openrouter.ai/api/v1/models "HTTP/1.1 200 OK"
+2025-04-18 17:50:00 [WARNING] slowapi: ratelimit 1 per 1 second (127.0.0.1) exceeded at endpoint: /get_free_llm
+2025-04-18 17:50:22 [WARNING] slowapi: ratelimit 1 per 1 second (127.0.0.1) exceeded at endpoint: /get_free_llm
+2025-04-18 17:51:24 [WARNING] slowapi: ratelimit 1 per 1 second (127.0.0.1) exceeded at endpoint: /get_free_llm

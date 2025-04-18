@@ -19,7 +19,9 @@ CREATE TABLE users (
   reading_languages TEXT[] DEFAULT '{}',
   learning_languages TEXT[] DEFAULT '{}',
   reminding_language TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  free_llm TEXT,
+  unallowed_urls TEXT[] DEFAULT '{}'
 );
 
 CREATE TABLE accounts (

@@ -4,9 +4,9 @@ if "F:\\VocabReminder\\backend" not in sys.path:
 
 import uvicorn
 import os 
-
+import json
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from collections import defaultdict
@@ -58,7 +58,7 @@ app.add_exception_handler(HTTPException, _rate_limit_exceeded_handler)
 
 @app.post("/create_phrase")
 @limiter.limit("1/second") 
-async def create_phrase(create_phrase_request: CreatePhraseRequest):
+async def create_phrase(create_phrase_request: CreatePhraseRequest, request: Request):
     try:
         user_id = create_phrase_request.user_id
         language = create_phrase_request.language
@@ -118,7 +118,7 @@ async def create_phrase(create_phrase_request: CreatePhraseRequest):
 
 @app.post("/get_phrases")
 @limiter.limit("1/second") 
-async def get_phrases(get_phrase_request: GetPhrasesRequest):
+async def get_phrases(get_phrase_request: GetPhrasesRequest, request: Request):
     try:
         hits = await qdrant_db.list(filters={"user_id": get_phrase_request.user_id})
         phrase_data_list = [PhraseData(id=hit.id, 
@@ -132,7 +132,7 @@ async def get_phrases(get_phrase_request: GetPhrasesRequest):
     
 @app.post("/delete_phrases")
 @limiter.limit("1/second") 
-async def delete_phrases(delete_phrases_request: DeletePhrasesRequest):
+async def delete_phrases(delete_phrases_request: DeletePhrasesRequest, request: Request):
     try:
         await qdrant_db.delete_1d(id_1d=delete_phrases_request.phrase_ids)
         return DeletePhrasesResponse(status="success")
@@ -141,7 +141,7 @@ async def delete_phrases(delete_phrases_request: DeletePhrasesRequest):
 
 @app.post("/reminders-text")
 @limiter.limit("1/second") 
-async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
+async def get_reminders_texts(reminders_text_request: RemindersTextRequest, request: Request):
     try:
         user_id = reminders_text_request.user_id
         reading_languages = reminders_text_request.reading_languages
@@ -215,13 +215,15 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest):
 
 @app.post("/update_user")
 @limiter.limit("1/second") 
-async def update_user(updated_user: UpdateUserRequest):
+async def update_user(updated_user: UpdateUserRequest, request: Request):
     try:
         user = await postgres_db.update_user(user_id=updated_user.id, 
                                        name=updated_user.name, 
                                        reading_languages=updated_user.reading_languages,
                                        learning_languages=updated_user.learning_languages,
-                                       reminding_language=updated_user.reminding_language)
+                                       reminding_language=updated_user.reminding_language,
+                                       free_llm=updated_user.free_llm,
+                                       unallowed_urls=updated_user.unallowed_urls)
         if not user: 
             return UpdateUserResponse(status="error", error="User not found")
         
@@ -230,10 +232,25 @@ async def update_user(updated_user: UpdateUserRequest):
                                                               email=user.email, 
                                                               reading_languages=user.reading_languages,
                                                               learning_languages=user.learning_languages,
-                                                              reminding_language=user.reminding_language))
+                                                              reminding_language=user.reminding_language,
+                                                              free_llm=user.free_llm,
+                                                              unallowed_urls=user.unallowed_urls))
     except Exception as e:
         return UpdateUserResponse(status="error", error=str(e))
 
+
+@app.get("/get_free_LLMs")
+@limiter.limit("1/second") 
+async def get_free_LLMs(request: Request):
+    try:
+        json_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "llm", "free_llm.json")
+        with open(json_file_path, 'r') as f:
+            free_llm = json.load(f)
+        free_llm_ids = [llm["id"] for llm in free_llm]
+        return GetFreeLLMsResponse(status="success", data=free_llm_ids)
+    except Exception as e:
+        return GetFreeLLMsResponse(status="error", error=str(e))
+    
 
 def main():
     print("Starting FastAPI server")

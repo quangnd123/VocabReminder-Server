@@ -108,14 +108,3 @@ You're helping a language learner recall vocabulary by linking it with real-worl
 
 
 
-import pprint 
-
-async def request_promt():
-    response = await freeLLM.send_prompt(prompt=prompt, model="google/gemini-2.0-flash-exp:free")
-    pprint.pprint(response)
-
-
-import asyncio
-
-asyncio.run(request_promt())
-

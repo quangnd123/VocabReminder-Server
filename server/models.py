@@ -70,6 +70,8 @@ class UpdateUserRequest(BaseModel):
     reading_languages: List[str]
     learning_languages: List[str]
     reminding_language: Optional[str] = None
+    free_llm: Optional[str] = None
+    unallowed_urls: List[str]
 
 class User(BaseModel):
     id: str
@@ -78,6 +80,12 @@ class User(BaseModel):
     reading_languages: List[str]
     learning_languages: List[str]
     reminding_language: Optional[str] = None
+    free_llm: Optional[str] = None
+    unallowed_urls: List[str]
 
 class UpdateUserResponse(BaseResponse[User]):
+    pass
+
+
+class GetFreeLLMsResponse(BaseResponse[list[str]]):
     pass
