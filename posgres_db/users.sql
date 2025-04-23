@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS verification_token CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS user_text_reminders_activity CASCADE;
 
 CREATE TABLE verification_token (
   identifier TEXT NOT NULL,
@@ -44,4 +45,17 @@ CREATE TABLE sessions (
   "userId" TEXT NOT NULL REFERENCES users(id),
   expires TIMESTAMPTZ NOT NULL,
   "sessionToken" VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE user_text_reminders_activity (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "userId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  sentences_num INTEGER NOT NULL,
+  words_num INTEGER NOT NULL,
+  related_words_num INTEGER NOT NULL,
+  filter_related_words_num INTEGER NOT NULL,
+  prompt_tokens_num INTEGER NOT NULL,
+  completion_tokens_num INTEGER NOT NULL,
+  response_time_ms INTEGER NOT NULL
 );

@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import List, Optional, Generic, TypeVar
+from typing import List, Optional, Generic, TypeVar, Literal
 
 T = TypeVar("T")  # Generic Type for Responses
 
 class BaseResponse(BaseModel, Generic[T]):
-    status: str  # "success" or "error"
+    status: Literal["success", "error"]
     error: Optional[str] = None
     data: Optional[T] = None
 
@@ -45,6 +45,7 @@ class RemindersTextRequest(BaseModel):
     reading_languages: List[str]
     reminding_language: str
     learning_languages: List[str]
+    free_llm: str
     sentences: List[str]
 
 class RemindersTextResponseSentenceData(BaseModel):
@@ -66,7 +67,7 @@ class RemindersTextResponse(BaseResponse[List[RemindersTextResponseData]]):
 # ----------------- User -----------------
 class UpdateUserRequest(BaseModel):
     id: str
-    name: str|None
+    name: Optional[str] = None
     reading_languages: List[str]
     learning_languages: List[str]
     reminding_language: Optional[str] = None
@@ -75,8 +76,8 @@ class UpdateUserRequest(BaseModel):
 
 class User(BaseModel):
     id: str
-    name: str|None
-    email: str|None
+    name: Optional[str] = None
+    email: Optional[str] = None
     reading_languages: List[str]
     learning_languages: List[str]
     reminding_language: Optional[str] = None
