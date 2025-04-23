@@ -3,53 +3,69 @@ import re
 import asyncio
 import json
 import sys
+import os 
+from pathlib import Path
+import time
+from dotenv import load_dotenv
 if "F:\\VocabReminder\\backend" not in sys.path:
     sys.path.append("F:\\VocabReminder\\backend")
+
+base_dir = os.path.dirname(__file__)
+
+# common env
+common_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=common_env_path)
+env = os.getenv("ENV")
+# local/prod env
+env_path =""
+if env == "local":
+    env_path = Path(__file__).parent.parent / ".env.local"
+elif env =="production":
+    env_path = Path(__file__).parent.parent / ".env.production"
+load_dotenv(dotenv_path=env_path)
+
+open_router_API = os.getenv("OPENROUTER_API")
+project_name = os.getenv("PROJECT_NAME")
+client_url = os.getenv("CLIENT_URL")
 
 from logger.logger import get_logger
 logger = get_logger(__name__, "freeLLM.log")
 
+
 class FreeLLM():
     def __init__(self):
-        self.API_KEY = "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"
-        #self.model = "google/gemini-2.0-flash-lite-preview-02-05:free"
-        #self.model = "qwen/qwen2.5-vl-32b-instruct:free"
-        self.model = "google/gemini-2.0-flash-exp:free"
         self.batch_number = 50
-        self.system_prompt = """
-You are an intelligent language assistant that helps users memorize vocabulary by finding meaningful connections between words in a given text and stored vocabulary words.
-"""
-    async def send_prompt(self, prompt, model=None, system_prompt=None):
-        if model == None:
-            model = self.model
-        if system_prompt == None:
-            system_prompt = self.system_prompt
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional
-                    "X-Title": "<YOUR_SITE_NAME>",  # Optional
-                },
-                json={  # Use `json` instead of `data=json.dumps(...)`
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                },
-            )
-            if response.status_code != 200:
-                print(f"Error {response.status_code}: {response.text}")
-                return None
 
-            try:
+    async def send_prompt(self, prompt: str, model: str):
+        headers = {
+            "Authorization": f"Bearer {open_router_API}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": f"{client_url}",  # Optional: replace or remove
+            "X-Title": f"{project_name}",     # Optional: replace or remove
+        }
+
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:  # 10 seconds timeout
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
                 return response.json()
-            except json.JSONDecodeError:
-                print("Invalid JSON received:", response.text)
-                return None
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(f"HTTP error {e.response.status_code}: {e.response.text}") from e
+        except httpx.RequestError as e:
+            raise RuntimeError(f"Request error: {e}") from e
+        except json.JSONDecodeError:
+            raise RuntimeError(f"Invalid JSON received: {response.text}")
 
     def get_reminders_text_prompt_input(self, sentence_data_1d: list) -> str:
         result = []
@@ -60,7 +76,7 @@ You are an intelligent language assistant that helps users memorize vocabulary b
                 for related_phrase_data in related_phrase_data_1d:
                     if word_data['ignore'] == True:
                         continue
-                    formatted_text += f"{id} # {word_data['word']} # {related_phrase_data.payload['phrase']} # {sentence_data['sentence']} # {related_phrase_data.payload['sentence']}\n"
+                    formatted_text += f"{id} # {related_phrase_data.payload['phrase']} # {word_data['word']} # {related_phrase_data.payload['sentence']} # {sentence_data['sentence']}\n"
                     
                     if id % self.batch_number == 0:
                         result.append(formatted_text)
@@ -103,10 +119,10 @@ You are an intelligent language assistant that helps users memorize vocabulary b
     def get_reminders_text_prompt_template(self, reminding_language: str):
         prompt = f"""
 ## Task:
-You're helping a language learner recall vocabulary by linking it with real-world usage they encounter while browsing.
+You're helping a language learner recall vocabulary by linking it with a word they encounter while browsing.
 
 **Input Format:**
-<ID> # <word users see> # <vocab users want to memorize> # <word_context> # <vocab_context>
+<ID> # <memorized_vocab> # <seen_word> # <memorized_vocab_context> # <seen_word_context> 
 
 **Output Format:**
 <ID> # <CONNECTION_TYPE> # <Concise, vivid mnemonic reminder in {reminding_language} that clearly connects the two words and their contexts. Include both words and refer to their original sentences.>
@@ -150,7 +166,7 @@ You're helping a language learner recall vocabulary by linking it with real-worl
 
         return prompt
 
-    async def get_reminders_text(self, sentence_data_1d: list, reminding_language: str ):
+    async def get_reminders_text(self, sentence_data_1d: list, reminding_language: str, free_llm: str ):
         prompt_template = self.get_reminders_text_prompt_template(reminding_language)
         prompt_inputs = self.get_reminders_text_prompt_input(sentence_data_1d=sentence_data_1d)
         
@@ -158,14 +174,22 @@ You're helping a language learner recall vocabulary by linking it with real-worl
         for prompt_input in prompt_inputs:
             prompt = (prompt_template + prompt_input).strip()
             logger.info(prompt)
-            tasks.append(self.send_prompt(prompt=prompt, model=self.model))
+            tasks.append(self.send_prompt(prompt=prompt, model=free_llm))
+        
+        start_time = time.time()
         responses = await asyncio.gather(*tasks)
+        response_time = time.time() - start_time
         
         answer = ""
+        prompt_tokens=0
+        completion_tokens=0
         for response in responses:
             answer += response["choices"][0]["message"]["content"].strip() + "\n"
+            prompt_tokens += response["usage"]["prompt_tokens"]
+            completion_tokens += response["usage"]["completion_tokens"]
         answer = answer.strip()
         logger.info(answer)
+        
         self.parse_data(llm_answer=answer, sentence_data_1d=sentence_data_1d)
-        return 
+        return prompt_tokens, completion_tokens, response_time
         
