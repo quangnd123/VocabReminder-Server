@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from abc import ABC, abstractmethod
-from typing import List
 import re 
 from logger.logger import get_logger
 
@@ -98,7 +97,7 @@ class BaseEmbedder(ABC):
         # Remove padding tokens
         return [embeddings[i, :int(attention_mask[i].sum().item())] for i in range(len(sentences))] #(num_sentences, num_tokens, hidden_dim)
 
-    def align_words_with_tokens(self, sentence: str, word_data_1d: list[dict], tokens: list[str]) -> List[dict]:
+    def align_words_with_tokens(self, sentence: str, word_data_1d: list[dict], tokens: list[str]) -> list[dict]:
         """
         Example: sentence = "haven't", words = ["have", "n't"], tokens = ["haven", "'", "t"]
         We can't get embeddings for these words. So, the only choice is to have only one word "haven't" with embedding as the average of the tokens' embeddings
@@ -113,7 +112,12 @@ class BaseEmbedder(ABC):
 
         # Remove '▁'(word boundary of tokenization models, not underscore) and whitespace(spaces, tabs, newlines)
         no_space_tokens = [re.sub(r"[▁\s]+", "", token) for token in tokens]
-        no_space_words = [re.sub(r"[▁\s]+", "", word_data["word"]) for word_data in word_data_1d]
+        
+        # 
+        words = [ word_data["word"] for word_data in word_data_1d]
+        words_tokens = self.tokenize_into_tokens(words)
+        no_space_words_tokens = [[re.sub(r"[▁\s]+", "", token) for token in word_tokens] for word_tokens in words_tokens]
+        no_space_words = ["".join(no_space_word_tokens) for no_space_word_tokens in no_space_words_tokens]
 
         start_token_idx = 1 # Skip the first token (CLS token)
         end_token_idx = start_token_idx + 1
@@ -123,16 +127,23 @@ class BaseEmbedder(ABC):
         
         new_words_data = [] 
 
-        while(start_token_idx < len(tokens)-1 and start_word_idx < len(word_data_1d)):
+        while(start_token_idx < len(tokens)-1 and start_word_idx < len(words)):
             current_word = no_space_words[start_word_idx]
             current_token = no_space_tokens[start_token_idx]
             
             while(len(current_word) != len(current_token)):
                 if(len(current_word) > len(current_token)):
+                    if end_token_idx >=len(no_space_tokens)-1:
+                        logger.error(f"Sentence: {sentence}")
+                        logger.error("end_token_idx out of bound")
+                        logger.error(f"end_word_idx out of bound. {current_token}, {current_word}")
                     next_token = no_space_tokens[end_token_idx]
                     current_token = current_token + next_token
                     end_token_idx += 1
                 else:
+                    if end_word_idx >=len(no_space_words):
+                        logger.error(f"Sentence: {sentence}")
+                        logger.error(f"end_word_idx out of bound. {current_token}, {current_word}")
                     next_word = no_space_words[end_word_idx]
                     current_word = current_word + next_word
                     end_word_idx += 1
@@ -144,7 +155,9 @@ class BaseEmbedder(ABC):
             token =""
             for i in range(start_token_idx, end_token_idx):
                 token += tokens[i]
-            word = token.replace("▁", " ").strip()
+            word = ""
+            for i in range(start_word_idx, end_word_idx):
+                word += words[i]
 
             new_words_data.append(
                 {
@@ -162,8 +175,8 @@ class BaseEmbedder(ABC):
             end_word_idx += 1
 
         # find sentence-based index for each word
-        words = [word_data["word"] for word_data in new_words_data]
-        word_indices = self.get_word_indices(sentence=sentence, words=words)
+        new_words = [word_data["word"] for word_data in new_words_data]
+        word_indices = self.get_word_indices(sentence=sentence, words=new_words)
         for word_data, word_idx in zip(new_words_data, word_indices):
             word_data["word_idx"] = word_idx
         
@@ -245,7 +258,7 @@ class BaseEmbedder(ABC):
             token += word_data_1d[i]["token"]
         new_phrase = token.replace("▁", " ").strip()
 
-        return new_phrase, new_phrase_idx, phrase_embedding 
+        return new_phrase, new_phrase_idx, phrase_embedding
     
     def get_cossim_phrases(self, phrase_1, phrase_idx_1, sentence_1, phrase_2, phrase_idx_2, sentence_2):
         _, _, emb_1 = self.get_phrase_embedding(phrase=phrase_1, phrase_idx=phrase_idx_1, sentence=sentence_1)
