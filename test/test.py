@@ -4,7 +4,7 @@ if "F:\\VocabReminder\\backend" not in sys.path:
     sys.path.append("F:\\VocabReminder\\backend")
 from embedding import get_embedders
 import torch.nn.functional as F
-
+from qdrant_db.dummy_data import original_words, sample_data
 
 def get_cossim_sentences( emb_1, emb_2):
         return F.cosine_similarity(emb_1.unsqueeze(0), emb_2.unsqueeze(0))
@@ -12,62 +12,61 @@ def get_cossim_sentences( emb_1, emb_2):
 en_embedder = get_embedders("en")
 vi_embedder = get_embedders("vi")
 
-phrase1 = "con mèo"
-sentence1 = "Có một con mèo đang ngủ trên ghế sofa."
-phrase1_idx = sentence1.find(phrase1)
-phrase, phraseidx, emb_1 = get_embedders("vi").get_phrase_embedding(phrase=phrase1, phrase_idx=phrase1_idx, sentence=sentence1)
-print(f"{phrase} and {phraseidx}")
+phrase1 = "shout"
+sentence1 = "He had to shout over the noise to be heard."
+idx1 = sentence1.find(phrase1)
 
-phrase2 = "Con chó"
-sentence2 = "Con chó chạy quanh vườn."
-phrase2_idx = sentence2.find(phrase2)
-phrase, phraseidx, emb_2 = get_embedders("vi").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-print(f"{phrase} and {phraseidx}")
+phrase2 = "bellowed"
+sentence2 = "He bellowed like a furious lion."
+idx2 = sentence2.find(phrase2)
 
-print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+print(en_embedder.get_cossim_phrases(phrase_1=phrase1, phrase_idx_1=idx1, sentence_1=sentence1,
+                               phrase_2=phrase2, phrase_idx_2=idx2, sentence_2=sentence2))
 
-phrase1 = "mèo"
-sentence1 = "Có một con mèo đang ngủ trên ghế sofa."
-phrase1_idx = sentence1.find(phrase1)
-phrase, phraseidx, emb_1 = get_embedders("vi").get_phrase_embedding(phrase=phrase1, phrase_idx=phrase1_idx, sentence=sentence1)
-print(f"{phrase} and {phraseidx}")
+phrase1 = "shout"
+sentence1 = "shout"
+idx1 = sentence1.find(phrase1)
 
-phrase2 = "Con chó"
-sentence2 = "Con chó chạy quanh vườn."
-phrase2_idx = sentence2.find(phrase2)
-phrase, phraseidx, emb_2 = get_embedders("vi").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-print(f"{phrase} and {phraseidx}")
+phrase2 = "bellowed"
+sentence2 = "He bellowed like a furious lion."
+idx2 = sentence2.find(phrase2)
 
-print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+print(en_embedder.get_cossim_phrases(phrase_1=phrase1, phrase_idx_1=idx1, sentence_1=sentence1,
+                               phrase_2=phrase2, phrase_idx_2=idx2, sentence_2=sentence2))
 
-phrase1 = "con"
-sentence1 = "Có một con mèo đang ngủ trên ghế sofa."
-phrase1_idx = sentence1.find(phrase1)
-phrase, phraseidx, emb_1 = get_embedders("vi").get_phrase_embedding(phrase=phrase1, phrase_idx=phrase1_idx, sentence=sentence1)
-print(f"{phrase} and {phraseidx}")
+phrase1 = "shout"
+sentence1 = "He had to shout over the noise to be heard."
+idx1 = sentence1.find(phrase1)
 
-phrase2 = "Con chó"
-sentence2 = "Con chó chạy quanh vườn."
-phrase2_idx = sentence2.find(phrase2)
-phrase, phraseidx, emb_2 = get_embedders("vi").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-print(f"{phrase} and {phraseidx}")
+phrase2 = "bellowed"
+sentence2 = "bellowed"
+idx2 = sentence2.find(phrase2)
 
-print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+print(en_embedder.get_cossim_phrases(phrase_1=phrase1, phrase_idx_1=idx1, sentence_1=sentence1,
+                               phrase_2=phrase2, phrase_idx_2=idx2, sentence_2=sentence2))
 
-# print("KO")
-# phrase2 = "나무"
-# sentence2 = "바람에 나무가 살랑살랑 흔들렸다."
-# phrase2_idx = sentence2.find(phrase2)
-# phrase, phraseidx, emb_2 = get_embedders("ko").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-# print(f"{phrase} and {phraseidx}")
-# print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+phrase1 = "shout"
+sentence1 = "shout"
+idx1 = sentence1.find(phrase1)
 
-# print("space")
-# phrase, phraseidx, emb_2 = get_embedders("space-delimited").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-# print(f"{phrase} and {phraseidx}")
-# print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+phrase2 = "bellowed"
+sentence2 = "bellowed"
+idx2 = sentence2.find(phrase2)
 
-# print("loco")
-# phrase, phraseidx, emb_2 = get_embedders("locographic").get_phrase_embedding(phrase=phrase2, phrase_idx=phrase2_idx, sentence=sentence2)
-# print(f"{phrase} and {phraseidx}")
-# print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+print(en_embedder.get_cossim_phrases(phrase_1=phrase1, phrase_idx_1=idx1, sentence_1=sentence1,
+                               phrase_2=phrase2, phrase_idx_2=idx2, sentence_2=sentence2))
+
+# for i in range(5):
+#     _, sen, word = original_words[i]
+#     phrase_idx = sen.find(word)
+#     phrase, phraseidx, emb_1 = get_embedders("en").get_phrase_embedding(phrase=word, phrase_idx=phrase_idx, sentence=sen)
+#     print("--------------------------------")
+#     print(word + " ---- " + sen)
+#     print(phrase)
+#     for relation, (language, sentence, phrase) in sample_data[i].items():
+#         idx   = sentence.find(phrase)
+#         p, phraseidx, emb_2 = get_embedders("en").get_phrase_embedding(phrase=phrase, phrase_idx=idx, sentence=sentence)
+#         print(phrase + " ---- " + sentence)
+#         print(p)
+#         print(get_cossim_sentences(emb_1=emb_1, emb_2=emb_2))
+
