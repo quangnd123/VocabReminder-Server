@@ -7,11 +7,13 @@ from sqlalchemy import (
     ForeignKey, DateTime, PrimaryKeyConstraint
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy import select
+from sqlalchemy import select, insert
 
 from datetime import datetime, timezone
 from passlib.context import CryptContext
 import uuid 
+
+
 Base = declarative_base()
 
 def gen_id():
@@ -77,11 +79,11 @@ class Session(Base):
 
     user = relationship("User", back_populates="sessions")
 
-class UserTextActivity(Base):
-    __tablename__ = "user_text_activity"
+class UserRemindersTextActivity(Base):
+    __tablename__ = "user_text_reminders_activity"
 
     id = Column(String, primary_key=True, default=gen_id)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column("userId", String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     sentences_num = Column(Integer, nullable=False)
     words_num = Column(Integer, nullable=False)
@@ -130,5 +132,34 @@ class PostgreSQLDatabase:
                 return None
 
             await session.delete(user)
+            await session.commit()
+            return True
+
+    async def track_user_reminders_text_activity(self, 
+                                                 user_id: str, 
+                                                 sentences_num: int,
+                                                 words_num: int, 
+                                                 related_words_num, 
+                                                 filter_related_words_num: int, 
+                                                 prompt_tokens_num: int,
+                                                 completion_tokens_num: int,
+                                                 response_time_ms):
+        async with self.async_session() as session:
+            user = await session.get(User, user_id)
+            if not user:
+                return None
+
+            stmt = insert(UserRemindersTextActivity).values(
+                user_id=user_id,
+                sentences_num=sentences_num,
+                words_num=words_num,
+                related_words_num=related_words_num,
+                filter_related_words_num=filter_related_words_num,
+                prompt_tokens_num=prompt_tokens_num,
+                completion_tokens_num=completion_tokens_num,
+                response_time_ms=response_time_ms,
+            )
+
+            await session.execute(stmt)
             await session.commit()
             return True

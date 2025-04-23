@@ -14,8 +14,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
 from models import *
-from qdrant import AsyncQdrant
-from postgresql import PostgreSQLDatabase
+from backend.qdrant_db.qdrant import AsyncQdrant
+from posgres_db.postgresql import PostgreSQLDatabase
 from llm.free import FreeLLM
 from filter import RelatedPhrasesFilter
 from embedding import get_embedders
@@ -25,18 +25,25 @@ from fasttext_092.language_detection import detect_language
 
 ########################## INIT ##########################
 base_dir = os.path.dirname(__file__)
-
-env_path = Path(__file__).parent.parent / ".env"
+common_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=common_env_path)
+env = os.getenv("ENV")
+#local/prod env
+env_path =""
+if env == "local":
+    env_path = Path(__file__).parent.parent / ".env.local"
+elif env =="production":
+    env_path = Path(__file__).parent.parent / ".env.production"
 load_dotenv(dotenv_path=env_path)
+
 postgres_db_url = os.getenv("POSTGRES_DATABASE_URL")
-assert postgres_db_url
 postgres_db = PostgreSQLDatabase(db_url=postgres_db_url)
 
 logger = get_logger(__name__, "server.log")
 
 freeLLM = FreeLLM()
 relatedPhrasesFilter = RelatedPhrasesFilter()
-qdrant_db = AsyncQdrant(collection_name="test", embedding_model_dims=1024, path= f"{os.path.dirname(base_dir)}/qdrant_db", on_disk=True)
+qdrant_db = AsyncQdrant(collection_name="test", embedding_model_dims=1024, path= f"{os.path.dirname(base_dir)}/qdrant_db/db", on_disk=True)
 
 # FastAPI App
 app = FastAPI(debug=True)
@@ -192,9 +199,9 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
                 for related_phrase_data in related_phrase_data_1d:
                     logger.info(str(related_phrase_data.score) + " # " + related_phrase_data.payload["phrase"] + " # " + related_phrase_data.payload["sentence"])
 
-        related_phrase_data_3d = relatedPhrasesFilter.filter(related_phrase_data_3d=related_phrase_data_3d)
+        filtered_related_phrase_data_3d = relatedPhrasesFilter.filter(related_phrase_data_3d=related_phrase_data_3d)
         logger.info("FILTERED RELATED DATA")
-        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d) :
+        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, filtered_related_phrase_data_3d) :
             logger.info("sentence: " + sentence)
             for related_phrase_data_1d, word_data in zip(related_phrase_data_2d, word_data_1d):
                 logger.info("word: " + word_data["word"])
@@ -202,11 +209,29 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
                     logger.info(str(related_phrase_data.score) + " # " + related_phrase_data.payload["phrase"] + " # " + related_phrase_data.payload["sentence"])
         
         sentence_data_1d = []
-        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, related_phrase_data_3d):
+        for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, filtered_related_phrase_data_3d):
             sentence_data_1d.append({"sentence": sentence, "word_data_1d": word_data_1d, "related_phrase_data_2d": related_phrase_data_2d})       
 
-        await freeLLM.get_reminders_text(sentence_data_1d=sentence_data_1d, reminding_language = reminding_language)
+        prompt_tokens_num, completion_tokens_num, response_time = await freeLLM.get_reminders_text(sentence_data_1d=sentence_data_1d, reminding_language = reminding_language, free_llm = reminders_text_request.free_llm)
+        
         data = relatedPhrasesFilter.sample_reminder(sentence_data_1d=sentence_data_1d)
+
+        # track user activity
+        sentences_num = len(sentences)
+        words_num = sum(len(word_data_1d) for word_data_1d in word_data_2d)
+        related_words_num = sum(len(related_phrase_data_1d) for related_phrase_data_2d in related_phrase_data_3d for related_phrase_data_1d in related_phrase_data_2d)
+        filter_related_words_num = sum(len(related_phrase_data_1d) for related_phrase_data_2d in filtered_related_phrase_data_3d for related_phrase_data_1d in related_phrase_data_2d)
+        
+        postgres_db.track_user_reminders_text_activity(user_id=user_id, 
+                                                       sentences_num=sentences_num,
+                                                       words_num = words_num,
+                                                       related_words_num=related_words_num,
+                                                       filter_related_words_num=filter_related_words_num,
+                                                       prompt_tokens_num=prompt_tokens_num,
+                                                       completion_tokens_num=completion_tokens_num,
+                                                       response_time_ms=response_time
+                                                       )
+
         return RemindersTextResponse(status="success", data=data)
     except Exception as e:
         raise RemindersTextResponse(status="error", error=str(e))
