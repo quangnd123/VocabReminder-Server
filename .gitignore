@@ -11,3 +11,9 @@ wheels/
 
 # env files (can opt-in for committing if needed)
 .env*
+
+# test folder 
+tests/
+
+# logs
+logs/*.log
