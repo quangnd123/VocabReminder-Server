@@ -1,6 +1,6 @@
 import heapq
 import random
-from models import RemindersTextResponseSentenceData, RemindersTextResponseData
+from model.models import RemindersTextResponseSentenceData, RemindersTextResponseData
 
 class RelatedPhrasesFilter():
     def __init__(self):
