@@ -13,7 +13,7 @@ wheels/
 .env*
 
 # test folder 
-tests/
+test/
 
 # logs
-logs/*.log
+logger/logs
