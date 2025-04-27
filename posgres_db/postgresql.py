@@ -41,8 +41,7 @@ class User(Base):
 
     reading_languages = Column(ARRAY(String), default=list)
     learning_languages = Column(ARRAY(String), default=list)
-    reminding_language = Column(String, nullable=True)
-    free_llm = Column(String, nullable=True)
+    llm_response_language = Column(String, nullable=True)
     unallowed_urls = Column(ARRAY(String), default=list)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

@@ -13,8 +13,8 @@ from collections import defaultdict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
-from models import *
-from backend.qdrant_db.qdrant import AsyncQdrant
+from model.models import *
+from qdrant_db.qdrant import AsyncQdrant
 from posgres_db.postgresql import PostgreSQLDatabase
 from llm.free import FreeLLM
 from filter import RelatedPhrasesFilter
@@ -30,8 +30,8 @@ load_dotenv(dotenv_path=common_env_path)
 env = os.getenv("ENV")
 #local/prod env
 env_path =""
-if env == "local":
-    env_path = Path(__file__).parent.parent / ".env.local"
+if env == "development":
+    env_path = Path(__file__).parent.parent / ".env.development"
 elif env =="production":
     env_path = Path(__file__).parent.parent / ".env.production"
 load_dotenv(dotenv_path=env_path)
@@ -72,6 +72,7 @@ async def create_phrase(create_phrase_request: CreatePhraseRequest, request: Req
         sentence = create_phrase_request.sentence
         phrase = create_phrase_request.phrase
         phrase_idx = create_phrase_request.phrase_idx
+        free_llm = create_phrase_request.free_llm
         
         if not language:
             language, confidence = detect_language(text=sentence)
@@ -82,17 +83,23 @@ async def create_phrase(create_phrase_request: CreatePhraseRequest, request: Req
 
         embedder = get_embedders(language=language)
 
-        if phrase == "" or sentence == "":
+        if not phrase:
             return CreatePhraseResponse(status="error", error="Phrase or sentence are empty.")
-
-        # check if phrase is in the sentence
-        idx = sentence.find(phrase)
         
-        if idx < 0 or phrase != sentence[idx: idx + len(phrase)]:
-            logger.info(idx)
-            logger.info(sentence)
-            logger.info(phrase)
-            return CreatePhraseResponse(status="error", error="Something wrong with the phrase index.")
+        if not sentence:
+            sentence = await freeLLM.create_sentence(phrase=phrase, language=language, model=free_llm)
+            phrase_idx = sentence.find(phrase)
+            if phrase_idx < 0:
+                return CreatePhraseResponse(status="error", error="Something wrong with auto sentence creation. Please add the sentence manually.")
+        else:
+            # check if phrase is in the sentence
+            idx = sentence.find(phrase)
+            
+            if idx < 0 or phrase != sentence[idx: idx + len(phrase)]:
+                logger.info(idx)
+                logger.info(sentence)
+                logger.info(phrase)
+                return CreatePhraseResponse(status="error", error="Something wrong with the phrase index.")
 
         # check existing phrase in the db
         existing = await qdrant_db.check_exist(filters={"user_id": user_id, 
@@ -152,7 +159,7 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
     try:
         user_id = reminders_text_request.user_id
         reading_languages = reminders_text_request.reading_languages
-        reminding_language = reminders_text_request.reminding_language
+        llm_response_language = reminders_text_request.llm_response_language
         learning_languages = reminders_text_request.learning_languages
 
         # detect and filter sentences languages
@@ -212,7 +219,7 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
         for sentence, word_data_1d, related_phrase_data_2d in zip(sentences, word_data_2d, filtered_related_phrase_data_3d):
             sentence_data_1d.append({"sentence": sentence, "word_data_1d": word_data_1d, "related_phrase_data_2d": related_phrase_data_2d})       
 
-        prompt_tokens_num, completion_tokens_num, response_time = await freeLLM.get_reminders_text(sentence_data_1d=sentence_data_1d, reminding_language = reminding_language, free_llm = reminders_text_request.free_llm)
+        prompt_tokens_num, completion_tokens_num, response_time = await freeLLM.get_reminders_text(sentence_data_1d=sentence_data_1d, llm_response_language = llm_response_language, free_llm = reminders_text_request.free_llm)
         
         data = relatedPhrasesFilter.sample_reminder(sentence_data_1d=sentence_data_1d)
 
@@ -222,7 +229,7 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
         related_words_num = sum(len(related_phrase_data_1d) for related_phrase_data_2d in related_phrase_data_3d for related_phrase_data_1d in related_phrase_data_2d)
         filter_related_words_num = sum(len(related_phrase_data_1d) for related_phrase_data_2d in filtered_related_phrase_data_3d for related_phrase_data_1d in related_phrase_data_2d)
         
-        postgres_db.track_user_reminders_text_activity(user_id=user_id, 
+        await postgres_db.track_user_reminders_text_activity(user_id=user_id, 
                                                        sentences_num=sentences_num,
                                                        words_num = words_num,
                                                        related_words_num=related_words_num,
@@ -234,7 +241,7 @@ async def get_reminders_texts(reminders_text_request: RemindersTextRequest, requ
 
         return RemindersTextResponse(status="success", data=data)
     except Exception as e:
-        raise RemindersTextResponse(status="error", error=str(e))
+        return RemindersTextResponse(status="error", error=str(e))
 
 ########################## CLient ##########################
 
@@ -246,7 +253,7 @@ async def update_user(updated_user: UpdateUserRequest, request: Request):
                                        name=updated_user.name, 
                                        reading_languages=updated_user.reading_languages,
                                        learning_languages=updated_user.learning_languages,
-                                       reminding_language=updated_user.reminding_language,
+                                       llm_response_language=updated_user.llm_response_language,
                                        free_llm=updated_user.free_llm,
                                        unallowed_urls=updated_user.unallowed_urls)
         if not user: 
@@ -257,25 +264,20 @@ async def update_user(updated_user: UpdateUserRequest, request: Request):
                                                               email=user.email, 
                                                               reading_languages=user.reading_languages,
                                                               learning_languages=user.learning_languages,
-                                                              reminding_language=user.reminding_language,
+                                                              llm_response_language=user.llm_response_language,
                                                               free_llm=user.free_llm,
                                                               unallowed_urls=user.unallowed_urls))
     except Exception as e:
         return UpdateUserResponse(status="error", error=str(e))
-
-
-@app.get("/get_free_LLMs")
-@limiter.limit("1/second") 
-async def get_free_LLMs(request: Request):
-    try:
-        json_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "llm", "free_llm.json")
-        with open(json_file_path, 'r') as f:
-            free_llm = json.load(f)
-        free_llm_ids = [llm["id"] for llm in free_llm]
-        return GetFreeLLMsResponse(status="success", data=free_llm_ids)
-    except Exception as e:
-        return GetFreeLLMsResponse(status="error", error=str(e))
     
+@app.post("/translate_phrase")
+@limiter.limit("1/second") 
+async def translate_phrase(translate_phrase_request: TranslatePhraseRequest, request: Request):
+    try:
+        translation = await freeLLM.translate_phrase(translate_phrase_request=translate_phrase_request)
+        return TranslatePhrasesResponse(status="success", data=translation)
+    except Exception as e:
+        return TranslatePhrasesResponse(status="error", error=str(e))
 
 def main():
     print("Starting FastAPI server")

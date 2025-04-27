@@ -19,9 +19,8 @@ CREATE TABLE users (
   image TEXT,
   reading_languages TEXT[] DEFAULT '{}',
   learning_languages TEXT[] DEFAULT '{}',
-  reminding_language TEXT,
+  llm_response_language TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  free_llm TEXT,
   unallowed_urls TEXT[] DEFAULT '{}'
 );
 
