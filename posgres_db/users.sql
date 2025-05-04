@@ -56,5 +56,5 @@ CREATE TABLE user_text_reminders_activity (
   filter_related_words_num INTEGER NOT NULL,
   prompt_tokens_num INTEGER NOT NULL,
   completion_tokens_num INTEGER NOT NULL,
-  response_time_ms INTEGER NOT NULL
+  response_time Numeric(10, 2) NOT NULL
 );

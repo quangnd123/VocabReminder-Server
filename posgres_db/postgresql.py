@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import (
     Column, Integer, String, Text, BigInteger,
-    ForeignKey, DateTime, PrimaryKeyConstraint
+    ForeignKey, DateTime, PrimaryKeyConstraint, Numeric
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy import select, insert
@@ -90,7 +90,7 @@ class UserRemindersTextActivity(Base):
     filter_related_words_num = Column(Integer, nullable=False)
     prompt_tokens_num = Column(Integer, nullable=False)
     completion_tokens_num = Column(Integer, nullable=False)
-    response_time_ms = Column(Integer, nullable=False)
+    response_time = Column(Numeric(10, 2), nullable=False)
 
 class PostgreSQLDatabase:
     def __init__(self, db_url):
@@ -142,7 +142,7 @@ class PostgreSQLDatabase:
                                                  filter_related_words_num: int, 
                                                  prompt_tokens_num: int,
                                                  completion_tokens_num: int,
-                                                 response_time_ms):
+                                                 response_time):
         async with self.async_session() as session:
             user = await session.get(User, user_id)
             if not user:
@@ -156,7 +156,7 @@ class PostgreSQLDatabase:
                 filter_related_words_num=filter_related_words_num,
                 prompt_tokens_num=prompt_tokens_num,
                 completion_tokens_num=completion_tokens_num,
-                response_time_ms=response_time_ms,
+                response_time=response_time,
             )
 
             await session.execute(stmt)

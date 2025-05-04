@@ -21,9 +21,13 @@ zh_embedder = ChineseEmbedder(model=model, tokenizer=tokenizer)
 ja_embedder = JapaneseEmbedder(model=model, tokenizer=tokenizer)
 ko_embedder = KoreanEmbedder(model=model, tokenizer=tokenizer)
 
+default_embedder = en_embedder
+
 locographic_languages = ["km", "lo", "th", "my"]
 
 supported_embedders: dict[str, BaseEmbedder] = {
+    "default": default_embedder,
+    
     "en": en_embedder,
     "vi": vi_embedder,
     "zh": zh_embedder,

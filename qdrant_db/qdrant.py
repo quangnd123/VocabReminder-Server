@@ -14,7 +14,10 @@ from qdrant_client.models import (
     Range,
     VectorParams,
     SearchRequest,
-    MatchAny
+    MatchAny, 
+    ScoredPoint,
+    CollectionsResponse,
+    CollectionInfo
 )
 
 logger = logging.getLogger(__name__)
@@ -69,6 +72,9 @@ class AsyncQdrant():
         self.embedding_model_dims = embedding_model_dims
         self.on_disk = on_disk
 
+        self.score_threshold = 0.7
+        self.output_num_limit = 3
+
     async def create_col(self, distance: Distance = Distance.COSINE):
         """
         Create a new collection.
@@ -90,7 +96,7 @@ class AsyncQdrant():
             vectors_config=VectorParams(size=self.embedding_model_dims, distance=distance, on_disk=self.on_disk),
         )
 
-    async def insert(self, vectors: list, payloads: list = None, ids: list = None):
+    async def insert(self, vectors: list, payloads: list = None, ids: list = None) -> list[str]:
         """
         Insert vectors into a collection.
 
@@ -147,65 +153,76 @@ class AsyncQdrant():
 
         return Filter(must=conditions) if conditions else None
 
-    async def search_1d(self, query: list[float], limit: int = 10, filters: dict = None, score_threshold: float = 0.7) -> list:
-        """
-        Search for similar vectors.
+    # async def search_1d(self, query: list[float], limit: int = None, filters: dict = None, score_threshold: float = None) -> list[ScoredPoint]:
+    #     """
+    #     Search for similar vectors.
 
-        Args:
-            query (list): word vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
+    #     Args:
+    #         query (list): word vector.
+    #         limit (int, optional): Number of results to return. Defaults to 5.
+    #         filters (dict, optional): Filters to apply to the search. Defaults to None.
 
-        Returns:
-            list: [related_phrases_num] each element is a Scorepoint
-        """
-        query_filter = self._create_filter(filters) if filters else None
-        hits = await self.client.search(
-            collection_name=self.collection_name,
-            query_vector=query,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True,
-            with_vectors=False,
-            score_threshold=score_threshold,
-        )
-        return hits 
+    #     Returns:
+    #         list: [related_phrases_num] each element is a Scorepoint
+    #     """
+    #     if limit == None: 
+    #         limit = self.output_num_limit
+    #     if score_threshold == None:
+    #         score_threshold = self.score_threshold
+
+    #     query_filter = self._create_filter(filters) if filters else None
+    #     hits = await self.client.search(
+    #         collection_name=self.collection_name,
+    #         query_vector=query,
+    #         query_filter=query_filter,
+    #         limit=limit,
+    #         with_payload=True,
+    #         with_vectors=False,
+    #         score_threshold=score_threshold,
+    #     )
+    #     return hits 
     
-    async def search_2d(self, query: list[list[float]], limit: int = 10, filters: dict = None, score_threshold: float = 0.7) -> list:
+    # async def search_2d(self, query: list[list[float]], limit: int = None, filters: dict = None, score_threshold: float = None) -> list[list[ScoredPoint]]:
+    #     """
+    #     Search for similar vectors.
+
+    #     Args:
+    #         query (list[list[float]]): [words_num], each element is a word vector
+    #         limit (int, optional): Number of results to return. Defaults to 5.
+    #         filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+    #     Returns:
+    #         list[list]: [words_num, related_phrases_num] each element is a Scorepoint
+    #     """
+    #     if limit == None: 
+    #         limit = self.output_num_limit
+    #     if score_threshold == None:
+    #         score_threshold = self.score_threshold
+
+    #     query_filter = self._create_filter(filters) if filters else None
+
+    #     #[num_words, num_related_words]
+    #     hits_batch = await self.client.search_batch(
+    #         collection_name=self.collection_name,
+    #         requests=[SearchRequest(
+    #             vector=word_vector,
+    #             limit=limit,
+    #             filter=query_filter,
+    #             with_payload=True,
+    #             with_vector=False,
+    #             score_threshold=score_threshold,
+    #         ) for word_vector in query]
+    #     )
+
+    #     return hits_batch
+
+    async def search_3d(self, word_embedding_2d: list[list[list[float]]], word_data_2d: list[list[dict]], limit: int = None, filters: dict = None, score_threshold: float = None)-> list[list[list[ScoredPoint]]]:
         """
         Search for similar vectors.
 
         Args:
-            query (list[list[float]]): [words_num], each element is a word vector
-            limit (int, optional): Number of results to return. Defaults to 5.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
-
-        Returns:
-            list[list]: [words_num, related_phrases_num] each element is a Scorepoint
-        """
-        query_filter = self._create_filter(filters) if filters else None
-
-        #[num_words, num_related_words]
-        hits_batch = await self.client.search_batch(
-            collection_name=self.collection_name,
-            requests=[SearchRequest(
-                vector=word_vector,
-                limit=limit,
-                filter=query_filter,
-                with_payload=True,
-                with_vector=False,
-                score_threshold=score_threshold,
-            ) for word_vector in query]
-        )
-
-        return hits_batch
-
-    async def search_3d(self, query: list[list[list[float]]], limit: int = 10, filters: dict = None, score_threshold: float = 0.7):
-        """
-        Search for similar vectors for a 2D list of queries.
-
-        Args:
-            query (list[list]): [sentences_num, words_num] an element is a list of float (vector)
+            word_embedding_2 (list[list[list[float]]]): [sentence][word][vector]
+            word_data_2d (list[list[dict]]): [sentence][word], an element is a list of dict
             limit (int, optional): Number of results to return per query. Defaults to 10.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             score_threshold (float, optional): Minimum similarity score threshold. Defaults to 0.7.
@@ -213,41 +230,55 @@ class AsyncQdrant():
         Returns:
             list[list[list]]: [num_sentences, num_words, num_related_phrases], each element is a ScorePoint
         """
+        if limit == None: 
+            limit = self.output_num_limit
+        if score_threshold == None:
+            score_threshold = self.score_threshold
+            
         query_filter = self._create_filter(filters) if filters else None
 
-        # Flatten queries while keeping track of sentence sizes
-        sentence_lengths = [len(sentence) for sentence in query]
-        flat_queries = [word_vector for sentence in query for word_vector in sentence]
+        # Step 1: Collect all SearchRequests with their positions
+        search_requests = []
+        positions = []  # to remember where to put results later    
 
-        # Single await call
-        flat_results = await self.client.search_batch(
+        for sent_idx, (word_embedding_1d, word_data_1d) in enumerate(zip(word_embedding_2d, word_data_2d)):
+            for word_idx, (word_embedding, word_data) in enumerate(zip(word_embedding_1d, word_data_1d)):
+                if not word_data.get('ignore', False):
+                    search_request = SearchRequest(
+                        vector=word_embedding,
+                        limit=limit,
+                        filter=query_filter,
+                        with_payload=True,
+                        with_vector=False,
+                        score_threshold=score_threshold,
+                    )
+                    search_requests.append(search_request)
+                    positions.append((sent_idx, word_idx))
+
+        # Step 2: Async batch search
+        batch_results = await self.client.search_batch(
             collection_name=self.collection_name,
-            requests=[
-                SearchRequest(
-                    vector=word_vector,
-                    limit=limit,
-                    filter=query_filter,
-                    with_payload=True,
-                    with_vector=False,
-                    score_threshold=score_threshold,
-                ) for word_vector in flat_queries
-            ]
+            requests=search_requests,
         )
+        
+        # Step 3: Initialize empty 3D result list
+        result = [
+            [[] for _ in sentence]
+            for sentence in word_data_2d
+        ]
 
-        result = []
-        start_idx = 0
-        for length in sentence_lengths:
-            result.append(flat_results[start_idx:start_idx + length])
-            start_idx += length
+        # Step 4: Fill in the results
+        for (sent_idx, word_idx), scored_points in zip(positions, batch_results):
+            result[sent_idx][word_idx] = scored_points
 
         return result
     
-    async def check_exist(self, filters: dict) -> list:
+    async def check_exist(self, filters: dict):
         query_filter = self._create_filter(filters) if filters else None
         hits = await self.client.scroll(collection_name=self.collection_name ,scroll_filter=query_filter, limit=1)
         return hits
 
-    async def delete(self, id: str):
+    async def delete(self, id: str) -> None:
         """
         Delete a vector by ID.
 
@@ -261,7 +292,7 @@ class AsyncQdrant():
             ),
         )
     
-    async def delete_1d(self, id_1d: list[str]):
+    async def delete_1d(self, id_1d: list[str]) -> None:
         """
         Delete vectors by ID.
 
@@ -275,7 +306,7 @@ class AsyncQdrant():
             ),
         )
 
-    async def update(self, vector_id: str, vector: list = None, payload: dict = None):
+    async def update(self, vector_id: str, vector: list = None, payload: dict = None) -> None:
         """
         Update a vector and its payload.
 
@@ -287,7 +318,7 @@ class AsyncQdrant():
         point = PointStruct(id=vector_id, vector=vector, payload=payload)
         await self.client.upsert(collection_name=self.collection_name, points=[point])
 
-    async def get(self, vector_id: str) -> dict:
+    async def get(self, vector_id: str):
         """
         Retrieve a vector by ID.
 
@@ -300,27 +331,29 @@ class AsyncQdrant():
         result = await self.client.retrieve(collection_name=self.collection_name, ids=[vector_id], with_payload=True)
         return result[0] if result else None
 
-    async def list_cols(self) -> list:
+    async def list_cols(self) -> list[CollectionsResponse]:
         """
         List all collections.
 
         Returns:
             list: List of collection names.
         """
-        return await self.client.get_collections()
+        result = await self.client.get_collections()
+        return result
 
-    async def delete_col(self):
+    async def delete_col(self) -> None:
         """Delete a collection."""
         await self.client.delete_collection(collection_name=self.collection_name)
 
-    async def col_info(self) -> dict:
+    async def col_info(self) -> CollectionInfo:
         """
         Get information about a collection.
 
         Returns:
             dict: Collection information.
         """
-        return await self.client.get_collection(collection_name=self.collection_name)
+        result = await self.client.get_collection(collection_name=self.collection_name)
+        return result
 
     async def list(self, filters: dict = None, limit: int = 1000):
         """

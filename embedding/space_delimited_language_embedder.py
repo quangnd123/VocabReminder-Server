@@ -7,7 +7,7 @@ import spacy
 class SpaceDelimitedLanguagesEmbedder(BaseEmbedder):
     def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
         super().__init__(model=model, tokenizer=tokenizer)
-        self.multilingual_spacy = spacy.load("xx_ent_wiki_sm")
+        self.multilingual_spacy = spacy.load("xx_sent_ud_sm")
         self.ignore_pos = {"SYM", "PUNCT",}
 
     @override

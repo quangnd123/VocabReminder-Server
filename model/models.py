@@ -51,13 +51,16 @@ class TranslatePhrasesResponse(BaseResponse[str]):
 
 # ----------------- Reminders Text -----------------
 class RemindersTextRequest(BaseModel):
+    tab_id: int
+    request_id: int
     user_id: str
     reading_languages: List[str]
     llm_response_language: str
     learning_languages: List[str]
     sentences: List[str]
 
-class RemindersTextResponseSentenceData(BaseModel):
+class ReminderTextData(BaseModel):
+    sentence: str
     word: str
     word_idx: int
     related_phrase: str
@@ -65,12 +68,13 @@ class RemindersTextResponseSentenceData(BaseModel):
     reminder: str
 
 class RemindersTextResponseData(BaseModel):
-    sentence: str
-    reminders_data: List[RemindersTextResponseSentenceData]
+    tab_id: int
+    request_id: int
+    is_final: bool
+    reminders_text_data: List[ReminderTextData]
 
-class RemindersTextResponse(BaseResponse[List[RemindersTextResponseData]]):
+class RemindersTextResponse(BaseResponse[RemindersTextResponseData]):
     pass
-
 
 
 # ----------------- User -----------------

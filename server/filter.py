@@ -1,6 +1,5 @@
 import heapq
 import random
-from model.models import RemindersTextResponseSentenceData, RemindersTextResponseData
 
 class RelatedPhrasesFilter():
     def __init__(self):
@@ -81,44 +80,44 @@ class RelatedPhrasesFilter():
             filtered_related_phrase_data_3d.append(filtered_related_phrase_data_2d)
         return filtered_related_phrase_data_3d
     
-    def sample_reminder(self, sentence_data_1d, limit = 999):
-        results: list[RemindersTextResponseData] = []
+    # def sample_reminder(self, sentence_data_1d, limit = 999):
+    #     results: list[RemindersTextResponseData] = []
 
-        for sentence_data in sentence_data_1d:
-            sentence = sentence_data["sentence"]
-            words =  [word_data["word"] for word_data in sentence_data["word_data_1d"]] 
-            word_indices = [word_data["word_idx"] for word_data in sentence_data["word_data_1d"]]
-            related_phrase_data_2d = sentence_data["related_phrase_data_2d"]
+    #     for sentence_data in sentence_data_1d:
+    #         sentence = sentence_data["sentence"]
+    #         words =  [word_data["word"] for word_data in sentence_data["word_data_1d"]] 
+    #         word_indices = [word_data["word_idx"] for word_data in sentence_data["word_data_1d"]]
+    #         related_phrase_data_2d = sentence_data["related_phrase_data_2d"]
 
-            # Find words that have at least one related phrase with "reminder"
-            valid_words = [
-                (i, [related_phrase_data for related_phrase_data in related_phrase_data_2d[i] if "reminder" in related_phrase_data.payload])
-                for i in range(len(words))
-                if any("reminder" in related_phrase_data.payload for related_phrase_data in related_phrase_data_2d[i])
-            ]
+    #         # Find words that have at least one related phrase with "reminder"
+    #         valid_words = [
+    #             (i, [related_phrase_data for related_phrase_data in related_phrase_data_2d[i] if "reminder" in related_phrase_data.payload])
+    #             for i in range(len(words))
+    #             if any("reminder" in related_phrase_data.payload for related_phrase_data in related_phrase_data_2d[i])
+    #         ]
 
-            if len(valid_words) == 0:
-                continue
-            elif len(valid_words) > limit:
-                chosen_words = random.sample(valid_words, 3)
-            else:
-                chosen_words = valid_words
+    #         if len(valid_words) == 0:
+    #             continue
+    #         elif len(valid_words) > limit:
+    #             chosen_words = random.sample(valid_words, 3)
+    #         else:
+    #             chosen_words = valid_words
             
-            # Choose one related phrase from each selected word
-            reminders_data = []
-            for word_idx, related_phrase_data_1d in chosen_words:
-                related_phrase_data = random.choice(related_phrase_data_1d)
-                reminders_data.append(RemindersTextResponseSentenceData(
-                    word=words[word_idx],
-                    word_idx=word_indices[word_idx],
-                    related_phrase=related_phrase_data.payload["phrase"],
-                    related_phrase_sentence=related_phrase_data.payload["sentence"],
-                    reminder=related_phrase_data.payload["reminder"]
-                ))
+    #         # Choose one related phrase from each selected word
+    #         reminders_data = []
+    #         for word_idx, related_phrase_data_1d in chosen_words:
+    #             related_phrase_data = random.choice(related_phrase_data_1d)
+    #             reminders_data.append(RemindersTextResponseSentenceData(
+    #                 word=words[word_idx],
+    #                 word_idx=word_indices[word_idx],
+    #                 related_phrase=related_phrase_data.payload["phrase"],
+    #                 related_phrase_sentence=related_phrase_data.payload["sentence"],
+    #                 reminder=related_phrase_data.payload["reminder"]
+    #             ))
 
-            results.append(RemindersTextResponseData(sentence=sentence, reminders_data=reminders_data))
+    #         results.append(RemindersTextResponseData(sentence=sentence, reminders_data=reminders_data))
 
-        return results
+    #     return results
 
 
 
