@@ -100,9 +100,9 @@ class PostgreSQLDatabase:
         )
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    # async def init_db(self):
-    #     async with self.engine.begin() as conn:
-    #         await conn.run_sync(Base.metadata.create_all)
+    async def create_tables_if_not_exist(self):
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all) # create if not exist
 
     async def get_user_by_email(self, email: str):
         async with self.async_session() as session:

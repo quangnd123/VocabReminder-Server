@@ -21,17 +21,18 @@ from qdrant_db.qdrant import AsyncQdrant
 from posgres_db.postgresql import PostgreSQLDatabase
 from llm.free import FreeLLM
 from filter import RelatedPhrasesFilter
-from embedding import get_embedders
+from embedding import get_embedders, embedding_model_dims, max_token_num
 from logger.logger import get_logger, get_error_logger
 from fasttext_092.language_detection import detect_language
 
 
-########################## INIT ##########################
+########################## ENV ##########################
 base_dir = os.path.dirname(__file__)
 common_env_path = Path(__file__).parent.parent / ".env"
+
 load_dotenv(dotenv_path=common_env_path)
+
 env = os.getenv("ENV")
-#local/prod env
 env_path =""
 if env == "development":
     env_path = Path(__file__).parent.parent / ".env.development"
@@ -39,17 +40,22 @@ elif env =="production":
     env_path = Path(__file__).parent.parent / ".env.production"
 load_dotenv(dotenv_path=env_path)
 
-postgres_db_url = os.getenv("POSTGRES_DATABASE_URL")
-postgres_db = PostgreSQLDatabase(db_url=postgres_db_url)
 
+########################## INIT ##########################
 logger = get_logger("server", "server.log")
 error_logger = get_error_logger("server_errors")
 
+postgres_db_url = os.getenv("POSTGRES_DATABASE_URL")
+postgres_db = PostgreSQLDatabase(db_url=postgres_db_url)
+
+qdrant_db_url = os.getenv("QDRANT_HTTP_URL")
+qdrant_db = AsyncQdrant(url=qdrant_db_url, collection_name="VocabReminder", embedding_model_dims=embedding_model_dims)
+
 freeLLM = FreeLLM()
 relatedPhrasesFilter = RelatedPhrasesFilter()
-qdrant_db = AsyncQdrant(collection_name="test", embedding_model_dims=1024, path= f"{os.path.dirname(base_dir)}/qdrant_db/db", on_disk=True)
 
-# FastAPI App
+
+########################## FASTAPI ##########################
 app = FastAPI(debug=True)
 app.add_middleware(
     CORSMiddleware,
@@ -229,7 +235,7 @@ async def generate_reminders_texts(websocket: WebSocket, reminders_text_request:
         for sentence in reminders_text_request.sentences:
             if "\n" in sentence:
                 continue
-            if len(sentence) + 2 > get_embedders("default").max_token_num: # 2 for <s> and </s> tokens
+            if len(sentence) + 2 > max_token_num: # 2 for <s> and </s> tokens # not too correct check
                 continue
             sentence_language = detect_language(sentence)
             if sentence_language != "unknown" and sentence_language in reading_languages: 
@@ -337,9 +343,12 @@ async def generate_reminders_texts(websocket: WebSocket, reminders_text_request:
 
 ########################## Main ########################## 
 
-def main():
+async def main():
+    await qdrant_db.create_collections_if_not_exist()
+    await postgres_db.create_tables_if_not_exist()
+
     print("Starting FastAPI server")
     uvicorn.run(app, host="127.0.0.1", port=8000)
 
 if __name__ == "__main__":
-    main()
+    asyncio(main())

@@ -20,7 +20,6 @@ class BaseEmbedder(ABC):
         self.model = model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.ignore_pos = [] 
-        self.max_token_num = tokenizer.model_max_length
         self.WORD_CONTEXT_LENGTH = 5 # Number of words to include in the context
 
         self.model.to(self.device)

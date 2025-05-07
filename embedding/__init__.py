@@ -12,6 +12,8 @@ from .korean_embedder import KoreanEmbedder
 model_name = "BAAI/bge-m3"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
+embedding_model_dims = model.config.hidden_size
+max_token_num = tokenizer.model_max_length
 
 locographic_embedder = LogographicLanguagesEmbedder(model=model, tokenizer=tokenizer)
 space_delimited_lang_embedder = SpaceDelimitedLanguagesEmbedder(model=model, tokenizer=tokenizer)

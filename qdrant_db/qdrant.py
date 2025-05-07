@@ -1,8 +1,4 @@
-import logging
-import os
-import shutil
 import uuid
-from functools import singledispatchmethod
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
@@ -20,20 +16,12 @@ from qdrant_client.models import (
     CollectionInfo
 )
 
-logger = logging.getLogger(__name__)
-
 class AsyncQdrant():
     def __init__(
         self,
         collection_name: str,
         embedding_model_dims: int,
-        client: AsyncQdrantClient = None,
-        host: str = None,
-        port: int = None,
-        path: str = None,
-        url: str = None,
-        api_key: str = None,
-        on_disk: bool = False,
+        url: str,
     ):
         """
         Initialize the Qdrant vector store.
@@ -41,41 +29,17 @@ class AsyncQdrant():
         Args:
             collection_name (str): Name of the collection.
             embedding_model_dims (int): Dimensions of the embedding model.
-            client (AsyncQdrantClient, optional): Existing Qdrant client instance. Defaults to None.
-            host (str, optional): Host address for Qdrant server. Defaults to None.
-            port (int, optional): Port for Qdrant server. Defaults to None.
-            path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
-            api_key (str, optional): API key for Qdrant server. Defaults to None.
-            on_disk (bool, optional): Enables persistent storage. Defaults to False.
         """
-        if client:
-            self.client = client
-        else:
-            params = {}
-            if api_key:
-                params["api_key"] = api_key
-            if url:
-                params["url"] = url
-            if host and port:
-                params["host"] = host
-                params["port"] = port
-            if not params:
-                params["path"] = path
-                if not on_disk:
-                    if os.path.exists(path) and os.path.isdir(path):
-                        shutil.rmtree(path)
-
-            self.client = AsyncQdrantClient(**params)
+        self.client = AsyncQdrantClient(url=url)
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
-        self.on_disk = on_disk
 
         self.score_threshold = 0.7
         self.output_num_limit = 3
 
-    async def create_col(self, distance: Distance = Distance.COSINE):
+    async def create_collections_if_not_exist(self, distance: Distance = Distance.COSINE):
         """
         Create a new collection.
 
@@ -88,7 +52,6 @@ class AsyncQdrant():
         response = await self.list_cols()
         for collection in response.collections:
             if collection.name == self.collection_name:
-                logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 return
 
         await self.client.create_collection(
@@ -331,7 +294,7 @@ class AsyncQdrant():
         result = await self.client.retrieve(collection_name=self.collection_name, ids=[vector_id], with_payload=True)
         return result[0] if result else None
 
-    async def list_cols(self) -> list[CollectionsResponse]:
+    async def list_cols(self) -> CollectionsResponse:
         """
         List all collections.
 
