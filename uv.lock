@@ -74,6 +74,7 @@ dependencies = [
     { name = "hanlp" },
     { name = "mistralai" },
     { name = "passlib" },
+    { name = "pip" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "python-mecab-ko" },
@@ -98,6 +99,7 @@ requires-dist = [
     { name = "hanlp", specifier = ">=2.1.1" },
     { name = "mistralai", specifier = ">=1.7.0" },
     { name = "passlib", specifier = ">=1.7.4" },
+    { name = "pip", specifier = ">=25.1.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "python-mecab-ko", specifier = ">=1.3.7" },
@@ -1161,6 +1163,15 @@ name = "phrasetree"
 version = "0.0.9"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/44/31/b9d9df3cddabd2f9da83f38f5521cc0cd74d204487ef1bd020f48d7ea737/phrasetree-0.0.9.tar.gz", hash = "sha256:cd0fc8f64be43b4742953f4a8172e369c805b5bdd70a6325f532465032b506e7", size = 42176, upload-time = "2024-03-23T02:44:25.348Z" }
+
+[[package]]
+name = "pip"
+version = "25.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/de/241caa0ca606f2ec5fe0c1f4261b0465df78d786a38da693864a116c37f4/pip-25.1.1.tar.gz", hash = "sha256:3de45d411d308d5054c2168185d8da7f9a2cd753dbac8acbfa88a8909ecd9077", size = 1940155, upload-time = "2025-05-02T15:14:02.057Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/a2/d40fb2460e883eca5199c62cfc2463fd261f760556ae6290f88488c362c0/pip-25.1.1-py3-none-any.whl", hash = "sha256:2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af", size = 1825227, upload-time = "2025-05-02T15:13:59.102Z" },
+]
 
 [[package]]
 name = "plac"
