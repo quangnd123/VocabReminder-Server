@@ -1,0 +1,44 @@
+services:
+  web:
+    # Build the image from the Dockerfile in the current directory
+    build: .
+    # Host the FastAPI application on port 8000
+    environment:
+      - ENV=production
+    ports:
+      - "8000:8000"
+    develop:
+      # Create a `watch` configuration to update the app
+      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: .
+          target: /app
+          # Exclude the project virtual environment — it could be for a
+          # different platform in the container
+          ignore:
+            - .venv/
+        # Rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./uv.lock
+
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres # must be same as in the env file
+      POSTGRES_PASSWORD: quangnd123 # must be same as in the env file
+      POSTGRES_DB: VocabReminder # must be same as in the env file
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data
+    ports:
+      - "5432:5432" # Expose the PostgreSQL port
+
+  qdrant:
+    image: qdrant/qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage # Persist Qdrant data
+
+volumes:
+  postgres_data: # Named volume for PostgreSQL data
+  qdrant_data: # Named volume for Qdrant data
