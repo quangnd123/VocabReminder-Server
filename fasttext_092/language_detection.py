@@ -1,4 +1,4 @@
-from fasttext.FastText import _FastText
+import fasttext
 import os
 import json
 
@@ -6,7 +6,7 @@ CONFIDENCE_LANGUAGE_DETECTION_THRESHOLD = 0.25
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-accurate_model = _FastText(os.path.join(script_dir, "lid.176.bin"))
+accurate_model = fasttext.load_model(os.path.join(script_dir, "lid.176.bin"))
 
 # Load the JSON
 json_path = os.path.join(script_dir, "languages.json")
