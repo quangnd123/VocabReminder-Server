@@ -6,7 +6,7 @@ CONFIDENCE_LANGUAGE_DETECTION_THRESHOLD = 0.25
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-accurate_model = fasttext.load_model(os.path.join(script_dir, "lid.176.bin"))
+fasttext_prediction_model = fasttext.load_model(os.path.join(script_dir, "lid.176.ftz"))
 
 # Load the JSON
 json_path = os.path.join(script_dir, "languages.json")
@@ -17,7 +17,7 @@ code2name = {entry['code']: entry['name'] for entry in data}
 
 def detect_language(text: str) -> str:
     text = text.replace("\n", " ")  # ensure single line
-    predictions = accurate_model.predict(text=text, k=1, threshold=CONFIDENCE_LANGUAGE_DETECTION_THRESHOLD)
+    predictions = fasttext_prediction_model.predict(text=text, k=1, threshold=CONFIDENCE_LANGUAGE_DETECTION_THRESHOLD)
     if not predictions[0]:
         return "unknown"
     language_code = predictions[0][0].replace('__label__', '')
