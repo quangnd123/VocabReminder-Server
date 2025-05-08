@@ -59,7 +59,8 @@ relatedPhrasesFilter = RelatedPhrasesFilter()
 app = FastAPI(debug=True)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"chrome-extension://{os.getenv('BROWSER_EXTENSION_EDGE_ID')}", os.getenv('CLIENT_URL')],
+    # allow_origins=[f"chrome-extension://{os.getenv('BROWSER_EXTENSION_EDGE_ID')}", os.getenv('CLIENT_URL')],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods, including OPTIONS
     allow_headers=["*"],  # Allow all headers
