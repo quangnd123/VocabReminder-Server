@@ -56,7 +56,7 @@ class AsyncQdrant():
 
         await self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(size=self.embedding_model_dims, distance=distance, on_disk=self.on_disk),
+            vectors_config=VectorParams(size=self.embedding_model_dims, distance=distance),
         )
 
     async def insert(self, vectors: list, payloads: list = None, ids: list = None) -> list[str]:

@@ -14,6 +14,7 @@ from pathlib import Path
 from collections import defaultdict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
+from contextlib import asynccontextmanager
 import asyncio
 
 from model.models import *
@@ -56,7 +57,18 @@ relatedPhrasesFilter = RelatedPhrasesFilter()
 
 
 ########################## FASTAPI ##########################
-app = FastAPI(debug=True)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load 
+    print("FASTAPI APP starting...")
+    await qdrant_db.create_collections_if_not_exist()
+    await postgres_db.create_tables_if_not_exist()
+    
+    yield
+    print("FASTAPI APP closing...")
+    # Clean up 
+
+app = FastAPI(lifespan=lifespan, debug=True)
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=[f"chrome-extension://{os.getenv('BROWSER_EXTENSION_EDGE_ID')}", os.getenv('CLIENT_URL')],
@@ -214,7 +226,7 @@ async def get_reminders_texts( websocket: WebSocket):
             reminders_text_request = RemindersTextRequest(**msg) 
 
             # Handle each request in its own coroutine
-            asyncio.create_task(generate_reminders_texts(websocket, reminders_text_request))
+            await generate_reminders_texts(websocket, reminders_text_request)
 
     except WebSocketDisconnect:
         pass
@@ -341,15 +353,8 @@ async def generate_reminders_texts(websocket: WebSocket, reminders_text_request:
         error_logger.error(traceback.format_exc())
         await websocket.send_json(RemindersTextResponse(status="error", error=str(e), data=RemindersTextResponseData(tab_id=tab_id, request_id=request_id, is_final=False, reminders_text_data=[])).model_dump())
 
-
 ########################## Main ########################## 
 
-async def main():
-    await qdrant_db.create_collections_if_not_exist()
-    await postgres_db.create_tables_if_not_exist()
-
+if __name__ == "__main__":
     print("Starting FastAPI server")
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-if __name__ == "__main__":
-    asyncio(main())

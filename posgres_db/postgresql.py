@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import (
-    AsyncSession, create_async_engine
+    AsyncSession, create_async_engine, async_sessionmaker
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import (
@@ -95,7 +95,7 @@ class UserRemindersTextActivity(Base):
 class PostgreSQLDatabase:
     def __init__(self, db_url):
         self.engine = create_async_engine(db_url, echo=False)
-        self.async_session = sessionmaker(
+        self.async_session = async_sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -138,15 +138,15 @@ class PostgreSQLDatabase:
                                                  user_id: str, 
                                                  sentences_num: int,
                                                  words_num: int, 
-                                                 related_words_num, 
+                                                 related_words_num: int, 
                                                  filter_related_words_num: int, 
                                                  prompt_tokens_num: int,
                                                  completion_tokens_num: int,
-                                                 response_time):
+                                                 response_time: float):
         async with self.async_session() as session:
             user = await session.get(User, user_id)
             if not user:
-                return None
+                return False
 
             stmt = insert(UserRemindersTextActivity).values(
                 user_id=user_id,
