@@ -25,6 +25,7 @@ services:
 
   postgres:
     image: postgres
+    pull_policy: always
     environment:
       POSTGRES_USER: postgres # must be same as in the env file
       POSTGRES_PASSWORD: quangnd123 # must be same as in the env file
@@ -36,6 +37,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant
+    pull_policy: always
     volumes:
       - qdrant_data:/qdrant/storage # Persist Qdrant data
 
