@@ -17,3 +17,6 @@ test/
 
 # logs
 logger/logs
+
+# qdrant storage
+qdrant_db/qdrant_storage
