@@ -1,9 +1,10 @@
 import sys
-if "F:\\VocabReminder\\backend" not in sys.path:
-    sys.path.append("F:\\VocabReminder\\backend")
+import os
+
+# Add the root 'backend' directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import uvicorn
-import os 
 import time
 import traceback
 from dotenv import load_dotenv
@@ -15,7 +16,6 @@ from collections import defaultdict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from contextlib import asynccontextmanager
-import asyncio
 
 from model.models import *
 from qdrant_db.qdrant import AsyncQdrant
