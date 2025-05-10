@@ -17,3 +17,6 @@ logger/logs
 
 # qdrant storage
 qdrant_db/qdrant_storage
+
+# env files (can opt-in for committing if needed)
+# .env*

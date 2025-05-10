@@ -2,7 +2,7 @@
 
 There are two ways to run this project: using Docker Compose (recommended) or manually.
 
-### Method 1: Docker Compose (Recommended)
+### Method 1: Docker Compose (Not recommended! Image consists of 20GB)
 
 This method simplifies the setup by using Docker to manage the necessary services.
 
@@ -22,14 +22,15 @@ This method simplifies the setup by using Docker to manage the necessary service
 
     * The `-d` flag runs the services in detached mode (in the background).
 
-### Method 2: Manual Setup
+### Method 2: Manual Setup (Recommended)
 
 This method involves setting up the environment and running the services manually.
 
 **Prerequisites:**
 
-* uv
+* uv: https://docs.astral.sh/uv/getting-started/installation/
 * Docker
+* Postgreql DB
 
 **Setup and Running the Project:**
 
@@ -38,6 +39,7 @@ This method involves setting up the environment and running the services manuall
 
 3.  **Step 1: Synchronize virtual environment (if using uv):**
     ```bash
+    uv python install 3.12 && \
     uv sync
     ```
     
@@ -52,7 +54,7 @@ This method involves setting up the environment and running the services manuall
     Open a new terminal window or tab in the project's root directory.  Run Qdrant using Docker:
 
     ```bash
-    docker run -p 6333:6333 -p 6334:6334 -v "$(pwd)/qdrant_storage:/qdrant/storage:z" qdrant/qdrant
+    docker run -p 6333:6333 -p 6334:6334 -v "$(pwd)/qdrant_db/qdrant_storage:/qdrant/storage:z" qdrant/qdrant
     ```
     * This command runs a Qdrant container, mapping ports 6333 and 6334 and mounting a local volume for data persistence.  The data will be stored in the `qdrant_storage` directory within your project directory.
     * Leave this terminal window running. Qdrant must be running for the server to function.
