@@ -61,7 +61,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "fastapi" },
     { name = "fasttext-predict" },
-    { name = "fugashi", extra = ["unidic"] },
+    { name = "fugashi", extra = ["unidic-lite"] },
     { name = "hanlp" },
     { name = "mistralai" },
     { name = "passlib" },
@@ -86,7 +86,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "fasttext-predict", specifier = ">=0.9.2.4" },
-    { name = "fugashi", extras = ["unidic"], specifier = ">=1.4.0" },
+    { name = "fugashi", extras = ["unidic-lite"], specifier = ">=1.4.0" },
     { name = "hanlp", specifier = ">=2.1.1" },
     { name = "mistralai", specifier = ">=1.7.0" },
     { name = "passlib", specifier = ">=1.7.4" },
@@ -371,8 +371,8 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-unidic = [
-    { name = "unidic" },
+unidic-lite = [
+    { name = "unidic-lite" },
 ]
 
 [[package]]
@@ -1041,15 +1041,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/59/de/241caa0ca606f2ec5fe0c1f4261b0465df78d786a38da693864a116c37f4/pip-25.1.1.tar.gz", hash = "sha256:3de45d411d308d5054c2168185d8da7f9a2cd753dbac8acbfa88a8909ecd9077", size = 1940155, upload-time = "2025-05-02T15:14:02.057Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/a2/d40fb2460e883eca5199c62cfc2463fd261f760556ae6290f88488c362c0/pip-25.1.1-py3-none-any.whl", hash = "sha256:2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af", size = 1825227, upload-time = "2025-05-02T15:13:59.102Z" },
-]
-
-[[package]]
-name = "plac"
-version = "1.4.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/23/09/26ef2d614cabdcc52a7f383d0dc7967bf46be3c9700898c594e37b710c3d/plac-1.4.5.tar.gz", hash = "sha256:5f05bf85235c017fcd76c73c8101d4ff8e96beb3dc58b9a37de49cac7de82d14", size = 38988, upload-time = "2025-04-04T14:03:25.651Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/36/38676114a0dbee137ec366daa86603d667a07e9a52667d5ebf5c580100ba/plac-1.4.5-py2.py3-none-any.whl", hash = "sha256:87187786b4e446688b1cf5112e18fed8a23ab3b316c25fe91266a10bd1736b16", size = 22468, upload-time = "2025-04-04T14:03:24.761Z" },
 ]
 
 [[package]]
@@ -1940,16 +1931,10 @@ wheels = [
 ]
 
 [[package]]
-name = "unidic"
-version = "1.1.0"
+name = "unidic-lite"
+version = "1.0.8"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "plac" },
-    { name = "requests" },
-    { name = "tqdm" },
-    { name = "wasabi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/09/271dfbf8d5b56adddc70e30fa94249f5d3ab35f615bf278d65258045564a/unidic-1.1.0.tar.gz", hash = "sha256:0ab91c05de342c84d2a6314901fd3afb9061ecd7534dd4a0431dccbb87d921b7", size = 7688, upload-time = "2021-10-10T08:56:44.301Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/2b/8cf7514cb57d028abcef625afa847d60ff1ffbf0049c36b78faa7c35046f/unidic-lite-1.0.8.tar.gz", hash = "sha256:db9d4572d9fdd4d00a97949d4b0741ec480ee05a7e7e2e32f547500dae27b245", size = 47356746, upload-time = "2021-01-25T06:07:54.719Z" }
 
 [[package]]
 name = "urllib3"
